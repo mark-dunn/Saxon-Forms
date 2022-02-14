@@ -82,7 +82,7 @@
     
     <xsl:param name="xforms-doc-global" as="document-node()?" required="no" select="if (exists($xforms-file-global) and fn:doc-available($xforms-file-global)) then fn:doc($xforms-file-global) else (if (exists(/) and namespace-uri(/*) = ('http://www.w3.org/2002/xforms','http://www.w3.org/1999/xhtml')) then (/) else ())"/>
 
-    <xsl:variable static="yes" name="debugMode" select="false()"/>
+    <xsl:variable static="yes" name="debugMode" select="true()"/>
     <xsl:variable static="yes" name="debugTiming" select="false()"/>
     <xsl:variable static="yes" name="global-default-model-id" select="'saxon-forms-default-model'" as="xs:string"/>
     <xsl:variable static="yes" name="global-default-instance-id" select="'saxon-forms-default-instance'" as="xs:string"/>
@@ -572,7 +572,7 @@
         
         
         <xsl:variable name="binding" as="element(xforms:bind)?" select="($binding-referenced-by-id,$binding-matching-nodeset)[1]"/>
-         
+                 
         <xsl:map>
             <xsl:map-entry key="'nodeset'" select="$refi"/>
             <xsl:map-entry key="'instance-context'" select="$instance-context"/>
@@ -1442,14 +1442,10 @@
         <!-- GENERATE HTML -->
         <xsl:variable name="time-id-get-html" as="xs:string" select="concat('XForms ', local-name(), ' get HTML ', generate-id())"/>
         <xsl:sequence use-when="$debugTiming" select="js:startTime($time-id-get-html)" />
-        
         <span>    
 <!--            <xsl:attribute name="class" select="$htmlClass"/>-->
-            <xsl:if test="empty($relevantStatus)">
-                <xsl:attribute name="style" select="'display:none'"/>
-            </xsl:if>
-<!--            <xsl:attribute name="style" select="if($relevantStatus) then 'display:inline' else 'display:none'" />
--->            <xsl:apply-templates select="xforms:label"/>            
+            <xsl:attribute name="style" select="if($relevantStatus) then 'display:inline' else 'display:none'" />
+            <xsl:apply-templates select="xforms:label"/>            
             <span>
                 <xsl:attribute name="id" select="$id"/>
                 <xsl:attribute name="class" select="$htmlClass"/>
@@ -1549,7 +1545,7 @@
              
         <div>
             <xsl:attribute name="class" select="$htmlClass"/>
-            <xsl:if test="empty($relevantStatus)">
+            <xsl:if test="not($relevantStatus)">
                 <xsl:attribute name="style" select="'display:none'"/>
             </xsl:if>
             <xsl:apply-templates select="xforms:label"/>
@@ -1706,7 +1702,7 @@
         
         <div>
             <xsl:attribute name="class" select="$htmlClass"/>
-            <xsl:if test="empty($relevantStatus)">
+            <xsl:if test="not($relevantStatus)">
                 <xsl:attribute name="style" select="'display:none'"/>
             </xsl:if>
             <xsl:apply-templates select="xforms:label"/>
@@ -1821,7 +1817,7 @@
                          
         <div>
             <xsl:attribute name="class" select="$htmlClass"/>
-            <xsl:if test="empty($relevantStatus)">
+            <xsl:if test="not($relevantStatus)">
                 <xsl:attribute name="style" select="'display:none'"/>
             </xsl:if>
             <xsl:apply-templates select="xforms:label"/>
@@ -2666,7 +2662,7 @@
             </xsl:if>
         </xsl:variable>
         
-        <xsl:message use-when="$debugMode">[getHtmlClass] @class = '<xsl:sequence select="$class"/>'</xsl:message>
+        <xsl:message use-when="$debugMode">[getHtmlClass] @class = '<xsl:sequence select="$class"/>'; relevant? <xsl:sequence select="$relevantStatus"/></xsl:message>
         
         <xsl:variable name="class-mod" as="xs:string*">
             <!-- start with any existing class values, except (ir)relevant -->
@@ -2681,7 +2677,8 @@
                     <xsl:sequence select="'relevant'"/>
                 </xsl:when>
                 <xsl:otherwise>
-                    <xsl:sequence select="if($isRelevant) then 'relevant' else 'irrelevant'"/>
+                    <xsl:sequence select="'irrelevant'"/>
+<!--                    <xsl:sequence select="if($isRelevant) then 'relevant' else 'irrelevant'"/>-->
                 </xsl:otherwise>
             </xsl:choose>
         </xsl:variable>
@@ -2908,15 +2905,25 @@
             
             <xsl:choose>
                 <xsl:when test="$relevantStatus">
-                    <ixsl:remove-property name="style.display" object="."/>
-                    <xsl:if test="exists($htmlWrapper)">
+                    <xsl:if test="ixsl:style(.)?display = 'none'">
+                        <xsl:message use-when="$debugMode">[refreshRelevantFields-JS] removing display="none"</xsl:message>
+                        <ixsl:remove-property name="style.display" object="."/>
+                        <ixsl:remove-attribute name="style" object="."/>
+                    </xsl:if>
+                    <!-- 
+                        Change setting on parent as well
+                        HTML for <xf:output> includes parent <span> containing rendering of label
+                    -->
+                    <xsl:if test="exists($htmlWrapper) and ixsl:style($htmlWrapper)?display = 'none'">
+                        <xsl:message use-when="$debugMode">[refreshRelevantFields-JS] removing display="none" from parent</xsl:message>
                         <ixsl:remove-property name="style.display" object="$htmlWrapper"/>
+                        <ixsl:remove-attribute name="style" object="$htmlWrapper"/>
                     </xsl:if>
                 </xsl:when>
                 <xsl:otherwise>
-                    <ixsl:set-property name="style.display" select="'none'" object="."/>
+                    <ixsl:set-style name="display" select="'none'" object="."/>
                     <xsl:if test="exists($htmlWrapper)">
-                        <ixsl:set-property name="style.display" select="'none'" object="$htmlWrapper"/>
+                        <ixsl:set-style name="display" select="'none'" object="$htmlWrapper"/>
                     </xsl:if>
                 </xsl:otherwise>
             </xsl:choose>
