@@ -1,0 +1,1 @@
+node /usr/local/lib/node_modules/xslt3/xslt3.js -t -xsl:src/saxon-xforms.xsl -export:sef/saxon-xforms.sef.json -nogo -ns:##html5
