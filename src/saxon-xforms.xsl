@@ -1148,8 +1148,6 @@
                       <xsl:when test="$replace = 'instance' and $response[self::document-node()]">
                           <xsl:sequence select="js:setInstance($instance-id,$response/*)"/>
                           
-                          <xsl:call-template name="xforms-submit-done"/>
-                          
 <!--                         <xsl:message use-when="$debugMode">[HTTPsubmit] response body: <xsl:value-of select="serialize($response)"/></xsl:message>-->
                       </xsl:when>
                       <xsl:when test="$replace = 'text' and exists($targetref) and $response castable as xs:string">
@@ -1173,13 +1171,13 @@
                                   <xsl:when test="$instanceDoc//node()[. is $updatedNode]">
                                       <xsl:apply-templates select="$instanceDoc" mode="recalculate">
                                           <xsl:with-param name="updated-nodes" select="$updatedNode" tunnel="yes"/>
-                                          <xsl:with-param name="updated-value" select="$response" tunnel="yes"/>
+                                          <xsl:with-param name="updated-value" select="string($response)" tunnel="yes"/>
                                       </xsl:apply-templates>
                                   </xsl:when>
                                   <xsl:otherwise>
                                       <xsl:apply-templates select="$instanceXML" mode="recalculate">
                                           <xsl:with-param name="updated-nodes" select="$updatedNode" tunnel="yes"/>
-                                          <xsl:with-param name="updated-value" select="$response" tunnel="yes"/>
+                                          <xsl:with-param name="updated-value" select="string($response)" tunnel="yes"/>
                                       </xsl:apply-templates>
                                   </xsl:otherwise>
                               </xsl:choose>
@@ -1188,13 +1186,15 @@
                           <!--        <xsl:message use-when="$debugMode">[xforms-value-changed] Updated XML: <xsl:sequence select="serialize($updatedInstanceXML)"/></xsl:message>-->
                           
                           <xsl:sequence select="js:setInstance($instance-id,$updatedInstanceXML)"/>
-                          <xsl:call-template name="xforms-submit-done"/>
+
                       </xsl:when>
                       <!-- TO DO: replace node or text within instance; replace entire page -->
                       <xsl:otherwise>
                           <xsl:message use-when="$debugMode">[HTTPsubmit] response = <xsl:sequence select="serialize($response)"/></xsl:message>
-                      </xsl:otherwise>
+                       </xsl:otherwise>
                   </xsl:choose>
+ 
+                  <xsl:call-template name="xforms-submit-done"/>
                   
               </xsl:otherwise>
           </xsl:choose>
@@ -2980,7 +2980,7 @@
         <xsl:param name="action-map" required="yes" as="map(*)" tunnel="yes"/>
         
         <xsl:variable name="log-label" select="'[applyActions]'"/>
-        <xsl:message use-when="$debugMode"><xsl:sequence select="$log-label"/> START <xsl:sequence select="if(exists(map:get($action-map, '@event'))) then '(event ' || map:get($action-map, '@event') || ')' else map:get($action-map, 'name')"/></xsl:message>
+        <xsl:message use-when="$debugMode"><xsl:sequence select="$log-label"/> START <xsl:sequence select="if(exists(map:get($action-map, '@event'))) then '(event ' || map:get($action-map, '@event') || ')' else ''"/>; <xsl:sequence select="map:get($action-map, 'name')"/></xsl:message>
         
         <xsl:variable name="instance-context" select="map:get($action-map, 'instance-context')" as="xs:string"/>
         <xsl:variable name="handler-status" select="map:get($action-map, 'handler-status')" as="xs:string"/>
@@ -4585,7 +4585,7 @@
             </xsl:document>
         </xsl:variable>
         
-        <xsl:message use-when="$debugMode"><xsl:sequence select="$log-label"/> instanceXML = <xsl:sequence select="fn:serialize($instanceXML)"/></xsl:message>
+        <xsl:message use-when="$debugMode"><xsl:sequence select="$log-label"/> context instance ID = <xsl:sequence select="$instance-id"/></xsl:message>
         
         <xsl:variable name="ref" as="xs:string?">
             <xsl:choose>
@@ -4601,7 +4601,7 @@
         <xsl:variable name="value" as="item()?">
             <xsl:choose>
                 <xsl:when test="exists($ref) and exists($context-node)">
-<!--                    <xsl:message use-when="$debugMode">[action-output] evaluating <xsl:sequence select="$ref"/></xsl:message>-->
+                    <xsl:message use-when="$debugMode">[action-output] evaluating <xsl:sequence select="$ref"/> against context node <xsl:sequence select="fn:serialize($context-node)"/></xsl:message>
                     <xsl:try>
                         <xsl:evaluate xpath="xforms:impose($ref)" context-item="$context-node" namespace-context="$context-node"/>
                         <xsl:catch>
@@ -4610,7 +4610,7 @@
                     </xsl:try>
                 </xsl:when>
                 <xsl:when test="exists($ref)">
-<!--                    <xsl:message use-when="$debugMode">[action-output] evaluating <xsl:sequence select="$ref"/></xsl:message>-->
+                    <xsl:message use-when="$debugMode">[action-output] evaluating <xsl:sequence select="$ref"/> against context instance</xsl:message>
                     <xsl:try>
                         <xsl:evaluate xpath="xforms:impose($ref)" context-item="$instanceXML" namespace-context="$instanceXML"/>
                         <xsl:catch>
