@@ -113,6 +113,5 @@
         <xf:setvalue ref="instance('hello')/demo:CatName" ev:event="DOMActivate">Blanket</xf:setvalue>
     </xf:trigger>
     
-
     
 </xf:xform>

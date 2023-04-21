@@ -15,6 +15,9 @@
         var bindings = [];
         var actions = {};
         var eventActions = {};
+        var switches = {};
+        var switchSelections = {};
+        var cases = {}; 
         var submissions = {};
         var outputs = {};
         var repeats = {};
@@ -199,6 +202,39 @@
             actioni[key] = value;
             return actioni;
         }
+        
+        var addSwitch = function(name, value){
+            switches[name] = value;
+        }
+        
+        var getSwitch = function(name){
+            return switches[name];
+        }
+        
+        var setSwitchSelection = function(name, value){
+            switchSelections[name] = value;
+        }
+        
+        var getSwitchSelection = function(name){
+            return switchSelections[name];
+        }
+        
+        var setCaseStatus = function(name, value){
+            cases[name] = value;
+        }
+        
+        var getCaseStatus = function(name){
+            return cases[name];
+        }
+        
+        var selectCase = function(name){
+            cases[name] = 'true';
+        }
+        var deselectCase = function(name){
+            cases[name] = 'false';
+        }
+        
+        
                 
         var addSubmission = function(name, value){
             submissions[name] = value;
@@ -320,6 +356,15 @@
             var item = document.getElementById(id);
             item.focus();
             // alert('setFocus on ' + id);
+         }
+         
+         var setValue = function(id,val) {
+             var item = document.getElementById(id);
+             item.value = val;
+         }
+         
+         var debugAlert = function(message) {
+            alert(message);
          }
          
     </xsl:variable>
