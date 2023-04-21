@@ -363,6 +363,16 @@
              item.value = val;
          }
          
+         var setCheckboxValue = function(id,val) {
+            var item = document.getElementById(id);
+            if (val == 'true') {
+                item.checked = true;
+            }
+            else {
+                item.checked = false;
+            }
+         }
+         
          var debugAlert = function(message) {
             alert(message);
          }

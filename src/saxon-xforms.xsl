@@ -1632,43 +1632,50 @@
                     </xsl:choose>
                 </xsl:variable>
                 
-                <xsl:choose>
-                    <xsl:when
-                        test="
-                        if (exists($binding)) then
-                        xs:QName($binding/@type) eq xs:QName('xs:date')
-                        else
-                        false()">
-                        <xsl:attribute name="data-type" select="'date'"/>
-                        <!--<xsl:if test="$relevantVar">-->
-                        <xsl:attribute name="type" select="'date'"/>
-                        <!--</xsl:if>-->
-                        <xsl:attribute name="value" select="$input-value"/>
-                    </xsl:when>
-                    <xsl:when
-                        test="
-                        if (exists($binding)) then
-                        xs:QName($binding/@type) eq xs:QName('xs:time')
-                        else
-                        false()">
-                        <xsl:attribute name="data-type" select="'time'"/>
-                        <!--<xsl:if test="$relevantVar">-->
-                        <xsl:attribute name="type" select="'time'"/>
-                        <!--</xsl:if>-->
+                <xsl:variable name="input-type" as="xs:string">
+                    <xsl:choose>
+                        <xsl:when
+                            test="
+                            if (exists($binding)) then
+                            xs:QName($binding/@type) eq xs:QName('xs:date')
+                            else
+                            false()">
+                            <xsl:sequence select="'date'"/>
+                        </xsl:when>
+                        <xsl:when
+                            test="
+                            if (exists($binding)) then
+                            xs:QName($binding/@type) eq xs:QName('xs:time')
+                            else
+                            false()">
+                            <xsl:sequence select="'time'"/>
+                        </xsl:when>
+                        <xsl:when
+                            test="
+                            if (exists($binding)) then
+                            xs:QName($binding/@type) eq xs:QName('xs:boolean')
+                            else
+                            false()">
+                            <xsl:sequence select="'checkbox'"/>
+                        </xsl:when>
                         
+                        <xsl:otherwise>
+                            <xsl:sequence select="'text'"/>
+                        </xsl:otherwise>
+                    </xsl:choose>
+                </xsl:variable>
+                
+                <xsl:attribute name="data-type" select="$input-type"/>
+                <xsl:attribute name="type" select="$input-type"/>
+                
+                <xsl:choose>
+                    <xsl:when test="$input-type eq 'date'">
                         <xsl:attribute name="value" select="$input-value"/>
                     </xsl:when>
-                    <xsl:when
-                        test="
-                        if (exists($binding)) then
-                        xs:QName($binding/@type) eq xs:QName('xs:boolean')
-                        else
-                        false()">
-                        <xsl:attribute name="data-type" select="'checkbox'"/>
-                        <!--<xsl:if test="$relevantVar">-->
-                        <xsl:attribute name="type" select="'checkbox'"/>
-                        <!--</xsl:if>-->
-                                               
+                    <xsl:when test="$input-type eq 'time'">
+                        <xsl:attribute name="value" select="$input-value"/>
+                    </xsl:when>
+                    <xsl:when test="$input-type eq 'checkbox'">
                         <xsl:if test="exists($instanceField)">
                             <xsl:if test="string-length($input-value) > 0 and xs:boolean($input-value)">
                                 <xsl:attribute name="checked" select="$input-value"/>
@@ -1677,17 +1684,19 @@
                     </xsl:when>
                     
                     <xsl:otherwise>
-                        <!--<xsl:if test="$relevantVar">-->
-                            <xsl:attribute name="type" select="'text'"/>
-                        <!--</xsl:if>-->
                         <xsl:attribute name="value" select="$input-value"/>
                     </xsl:otherwise>
                 </xsl:choose>
                 
+                
+                <xsl:call-template name="registerOutput">
+                    <xsl:with-param name="data-type" as="xs:string" select="$input-type"/>
+                </xsl:call-template>
+                
             </input>
         </div> 
         
-        <xsl:call-template name="registerOutput"/>
+        
         
     </xsl:template>
     
@@ -1868,6 +1877,7 @@
             <xsl:variable name="hints" select="xforms:hint/text()"/>
             
             <select>
+                <xsl:attribute name="id" select="$id"/>
                 <xsl:attribute name="class" select="$htmlClass"/>
                 <xsl:attribute name="instance-context" select="$instance-context"/>
                 <xsl:attribute name="data-ref" select="$nodeset"/>
@@ -1907,6 +1917,7 @@
             
         </div>
         
+        <xsl:call-template name="registerOutput"/>
 
     </xsl:template>
 
@@ -3097,7 +3108,7 @@
                     </xsl:otherwise>
                 </xsl:choose>
             </xsl:variable>
-            <xsl:variable name="xpath-mod" as="xs:string" select="xforms:impose($xpath)"/>
+            <xsl:variable name="xpath-mod" as="xs:string" select="xforms:impose('string(' || $xpath || ')')"/>
             
             <xsl:message use-when="$debugMode"><xsl:sequence select="$log-label"/> $xpath-mod = '<xsl:sequence select="$xpath-mod"/>'</xsl:message>
                                     
@@ -3109,14 +3120,19 @@
                 <xsl:sequence select="xforms:instance($this-instance-id)"/>
             </xsl:variable>
             
-            <xsl:message use-when="$debugMode"><xsl:sequence select="$log-label"/> $contexti = '<xsl:sequence select="serialize($contexti)"/>'</xsl:message>
+            <!--<xsl:message use-when="$debugMode"><xsl:sequence select="$log-label"/> $contexti = '<xsl:sequence select="serialize($contexti)"/>'</xsl:message>-->
             
             <xsl:variable name="namespace-context-item" as="element()" select="
                 if (exists($contexti))
                 then $contexti
                 else js:getXForm()
                 "/>
-            <xsl:message use-when="$debugMode"><xsl:sequence select="$log-label"/> $namespace-context-item = '<xsl:sequence select="serialize($namespace-context-item)"/>'</xsl:message>
+            <!--<xsl:message use-when="$debugMode"><xsl:sequence select="$log-label"/> $namespace-context-item = '<xsl:sequence select="serialize($namespace-context-item)"/>'</xsl:message>-->
+            
+            <!-- 
+                If value returned from unmodified XPath is a boolean
+                the string value is '' for false() or 'true' for true()
+            -->
             <xsl:variable name="value" as="xs:string?">
                 <xsl:try>
                     <xsl:evaluate xpath="$xpath-mod" context-item="$contexti" namespace-context="$namespace-context-item"/>
@@ -3130,11 +3146,17 @@
                     </xsl:catch>
                 </xsl:try>
             </xsl:variable>
+            
+            <xsl:variable name="data-type" as="xs:string?" select="map:get($this-output,'@data-type')"/>
                         
             <xsl:variable name="associated-form-control" select="ixsl:page()//*[@id = $this-key]" as="node()?"/>
                         
             <xsl:choose>
-                <xsl:when test="exists($associated-form-control) and local-name($associated-form-control) eq 'input'">
+                <xsl:when test="exists($associated-form-control) and local-name($associated-form-control) = ('input') and $data-type eq 'checkbox'">
+                    <xsl:sequence select="js:setCheckboxValue($this-key,$value)"/>
+                </xsl:when>
+                
+                <xsl:when test="exists($associated-form-control) and local-name($associated-form-control) = ('input','select','select1')">
                     <xsl:sequence select="js:setValue($this-key,$value)"/>
                 </xsl:when>
                 <xsl:when test="exists($associated-form-control)">
@@ -3569,11 +3591,13 @@
         <xd:param name="id">ID of HTML element.</xd:param>
         <xd:param name="nodeset">XPath binding expression</xd:param>
         <xd:param name="instance-context">ID of XForms instance relevant to this control</xd:param>
+        <xd:param name="data-type">String identifying data type of an input. Required to support setting its value in the appropriate way</xd:param>
     </xd:doc>
     <xsl:template name="registerOutput">
         <xsl:param name="id" as="xs:string" tunnel="yes"/>
         <xsl:param name="nodeset" as="xs:string" tunnel="yes"/>
         <xsl:param name="instance-context" as="xs:string" tunnel="yes"/>
+        <xsl:param name="data-type" as="xs:string" required="no" select="''"/>
         
         <xsl:sequence use-when="$debugTiming" select="js:startTime($time-id-register-outputs)" />
         
@@ -3588,6 +3612,10 @@
                     
                     <xsl:if test="exists(@value)">
                         <xsl:map-entry key="'@value'" select="xs:string(@value)" />
+                    </xsl:if>
+                    
+                    <xsl:if test="$data-type ne ''">
+                        <xsl:map-entry key="'@data-type'" select="$data-type"/>
                     </xsl:if>
                 </xsl:map>
             </xsl:variable>
