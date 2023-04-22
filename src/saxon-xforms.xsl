@@ -1091,7 +1091,7 @@
         <xsl:param name="instance-id" as="xs:string"/>
         <xsl:param name="namespace-context" as="element()?"/>
         
-        <xsl:variable name="instanceXML" as="element()" select="js:getInstance($instance-id)"/>
+        <xsl:variable name="instanceXML" as="element()" select="xforms:instance($instance-id)"/>
         
         <xsl:variable name="namespace-context-item" as="element()" select="
             if (exists($namespace-context))
@@ -1425,7 +1425,7 @@
         <xsl:variable name="log-label" as="xs:string" select="concat('[',name(),' get-html mode]')"/>
         <xsl:message use-when="$debugMode"><xsl:sequence select="$log-label"/> START</xsl:message>
         
-        <!--<xsl:variable name="instanceXML" as="element()" select="js:getInstance($instance-context)"/>   
+        <!--<xsl:variable name="instanceXML" as="element()" select="xforms:instance($instance-context)"/>   
         <xsl:variable name="instanceDoc" as="document-node()">
             <xsl:document>
                 <xsl:sequence select="$instanceXML"/>
@@ -3141,7 +3141,7 @@
             else ()
             "/>
         
-        <xsl:variable name="instanceXML" as="element()?" select="js:getInstance($instance-context)"/>        
+        <xsl:variable name="instanceXML" as="element()?" select="xforms:instance($instance-context)"/>        
        
         <xsl:variable name="context-nodeset" as="node()*">
             <xsl:choose>
@@ -3656,7 +3656,7 @@
         <xsl:variable name="instance-keys" select="js:getInstanceKeys()" as="item()*"/>
         <xsl:for-each select="$instance-keys">
             <xsl:variable name="instance-id" as="xs:string" select="."/>
-<!--            <xsl:variable name="instanceXML" select="js:getInstance(.)"/>-->
+<!--            <xsl:variable name="instanceXML" select="xforms:instance(.)"/>-->
             <xsl:variable name="instance-calculation-bindings" as="element(xforms:bind)*" select="$bindings[@instance-context = $instance-id][exists(@calculate)]"/>
             <xsl:if test="exists($instance-calculation-bindings)">
                 <xsl:variable name="updatedInstanceXML" as="element()">
@@ -3695,7 +3695,7 @@
         
         <xsl:message use-when="$debugMode">[xforms-recalculate-binding] START</xsl:message>
         
-        <xsl:variable name="instanceXML" as="element()" select="js:getInstance($instance-id)"/>
+        <xsl:variable name="instanceXML" as="element()" select="xforms:instance($instance-id)"/>
         
         <xsl:variable name="this-binding" as="element(xforms:bind)?" select="$calculation-bindings[$counter]"/>
         
@@ -3848,7 +3848,7 @@
         <xsl:variable name="refi" as="xs:string?" select="map:get($submission-map,'@ref')"/>
         <xsl:variable name="instance-id-submit" as="xs:string" select="xforms:getInstanceId($refi)"/>
         <xsl:variable name="instance-id-update" as="xs:string" select="map:get($submission-map,'@instance')"/>
-        <xsl:variable name="instanceXML-submit" as="element()?" select="js:getInstance($instance-id-submit)"/>
+        <xsl:variable name="instanceXML-submit" as="element()?" select="xforms:instance($instance-id-submit)"/>
         
         <!-- 
                     MD 2020-04-05: I think this is "the rebuild operation is performed without dispatching an event to invoke the operation."
@@ -4209,7 +4209,7 @@
         <xsl:param name="node-counter" as="xs:integer" required="no" select="1"/>
         <xsl:param name="action-map" required="yes" as="map(*)" tunnel="yes"/>
         
-        <xsl:variable name="instanceXML" as="element()" select="js:getInstance($instance-id)"/>
+        <xsl:variable name="instanceXML" as="element()" select="xforms:instance($instance-id)"/>
         <xsl:variable name="refz" select="map:get($action-map,'@ref')"/>
         <xsl:variable name="iterate-ref" select="map:get($action-map,'@iterate')"/>
         
@@ -4429,14 +4429,14 @@
             else ()
             "/>
         
-        <xsl:variable name="instanceXML" as="element()" select="js:getInstance($instance-context)"/>
+        <xsl:variable name="instanceXML" as="element()" select="xforms:instance($instance-context)"/>
                
                  
         <!--<xsl:message use-when="$debugMode">[action-insert] $ref = '<xsl:value-of select="$ref"/>'; inserting node at XPath <xsl:value-of select="$ref-qualified"/></xsl:message>-->
                
         
         <xsl:variable name="instance-id-origin" as="xs:string?" select="if(exists($origin-ref)) then xforms:getInstanceId($origin-ref) else ()"/>
-        <xsl:variable name="instanceXML-origin" as="element()?" select="if(exists($instance-id-origin)) then js:getInstance($instance-id-origin) else ()"/>
+        <xsl:variable name="instanceXML-origin" as="element()?" select="if(exists($instance-id-origin)) then xforms:instance($instance-id-origin) else ()"/>
         <xsl:variable name="instanceDoc" as="document-node()">
             <xsl:document>
                 <xsl:sequence select="$instanceXML"/>
@@ -4586,7 +4586,7 @@
             else ()
             "/>
         
-        <xsl:variable name="instanceXML" as="element()" select="js:getInstance($instance-context)"/>
+        <xsl:variable name="instanceXML" as="element()" select="xforms:instance($instance-context)"/>
         <xsl:variable name="instanceDoc" as="document-node()">
             <xsl:document>
                 <xsl:sequence select="$instanceXML"/>
