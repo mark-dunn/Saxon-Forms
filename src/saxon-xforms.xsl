@@ -87,7 +87,7 @@
     
     <xsl:param name="xforms-doc-global" as="document-node()?" required="no" select="if (exists($xforms-file-global) and fn:doc-available($xforms-file-global)) then fn:doc($xforms-file-global) else (if (exists(/) and namespace-uri(/*) = ('http://www.w3.org/2002/xforms','http://www.w3.org/1999/xhtml')) then (/) else ())"/>
 
-    <xsl:variable static="yes" name="debugMode" select="true()"/>
+    <xsl:variable static="yes" name="debugMode" select="false()"/>
     <xsl:variable static="yes" name="debugTiming" select="false()"/>
     <xsl:variable static="yes" name="global-default-model-id" select="'saxon-forms-default-model'" as="xs:string"/>
     <xsl:variable static="yes" name="global-default-instance-id" select="'saxon-forms-default-instance'" as="xs:string"/>
@@ -1149,10 +1149,10 @@
         <xsl:variable name="constraint-fieldsi" select="ixsl:page()//*[@data-constraint]" as="item()*"/>
         
         <xsl:for-each select="$constraint-fieldsi">
-            <xsl:variable name="contexti" as="node()" select="xforms:evaluate-xpath-with-context-node(@data-ref,$instanceXML,())"/>
+            <xsl:variable name="contexti" as="node()" select="if (exists(@data-ref)) then xforms:evaluate-xpath-with-context-node(string(@data-ref),$instanceXML,()) else ()"/>
             <xsl:message use-when="$debugMode">[xforms:check-constraints-on-fields] Evaluating XPath: <xsl:value-of select="@data-ref"/></xsl:message>
             
-            <xsl:variable name="resulti" as="xs:boolean" select="xforms:evaluate-xpath-with-context-node(@data-constraint,$contexti,())"/>
+            <xsl:variable name="resulti" as="xs:boolean" select="if (exists(@data-constraint)) then xforms:evaluate-xpath-with-context-node(string(@data-constraint),$contexti,()) else ()"/>
             <xsl:sequence select="if (not($resulti)) then . else ()"/>
         </xsl:for-each>
     </xsl:function>
@@ -3017,8 +3017,8 @@
         
         <!-- go through all form controls where @data-relevant has been set -->
         <xsl:for-each select="ixsl:page()//*[@data-relevant]">
-            <xsl:variable name="context-node" as="node()?" select="xforms:evaluate-xpath-with-instance-id(@data-ref,@instance-context,())"/>
-            <xsl:variable name="relevantStatus" as="xs:boolean" select="if (exists($context-node)) then xforms:evaluate-xpath-with-context-node(@data-relevant,$context-node,()) else false()"/>
+            <xsl:variable name="context-node" as="node()?" select="xforms:evaluate-xpath-with-instance-id(string(@data-ref),string(@instance-context),())"/>
+            <xsl:variable name="relevantStatus" as="xs:boolean" select="if (exists($context-node)) then xforms:evaluate-xpath-with-context-node(string(@data-relevant),$context-node,()) else false()"/>
             <!-- 
                 div containing span, input, etc. with its label (HTML <label> generated from <xforms:label>)
             -->
@@ -4475,7 +4475,7 @@
         
         <xsl:variable name="insert-node-location" as="node()?" select="$binding-nodeset[last()]"/> 
         
-        <xsl:variable name="context-nodeset" as="node()*" select="xforms:evaluate-xpath-with-context-node($context,$instanceXML,())"/>
+        <xsl:variable name="context-nodeset" as="node()*" select="if (exists($context)) then xforms:evaluate-xpath-with-context-node($context,$instanceXML,()) else ()"/>
         
         <xsl:variable name="context-node" as="node()?" select="$context-nodeset[1]"/>
         
