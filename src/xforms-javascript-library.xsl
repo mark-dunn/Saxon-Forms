@@ -15,8 +15,9 @@
         var bindings = [];
         var actions = {};
         var eventActions = {};
-        var switches = {};
+        var switches = {}; // map switch ID to array of case IDs
         var switchSelections = {};
+        var caseSwitches = {}; // map case ID to ID of parent switch
         var cases = {}; 
         var submissions = {};
         var outputs = {};
@@ -219,6 +220,14 @@
             return switchSelections[name];
         }
         
+        var setCaseSwitch = function(name, value){
+            caseSwitches[name] = value;
+        }
+        
+        var getCaseSwitch = function(name){
+            return caseSwitches[name];
+        }
+        
         var setCaseStatus = function(name, value){
             cases[name] = value;
         }
@@ -371,6 +380,11 @@
             else {
                 item.checked = false;
             }
+         }
+         
+         var setSrc = function(id,val) {
+            var item = document.getElementById(id);
+            item.src = val;
          }
          
          var debugAlert = function(message) {
