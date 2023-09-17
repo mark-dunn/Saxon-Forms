@@ -32,7 +32,7 @@
             "/>
         <xf:bind nodeset="instance('hello')/demo:PetType" constraint="text() != 'pet'" />
         
-        <xf:bind id="test-relevant" nodeset="instance('hello')/demo:CatNameForDisplayCheck" relevant="text() = 'Blanket'"/>
+        <xf:bind id="test-relevant" nodeset="instance('hello')/demo:CatNameForDisplayCheck" relevant="text() = 'Scout'"/>
         
         <xf:submission id="test" ref="instance('hello')" instance="hello"/>
         
@@ -94,7 +94,7 @@
     
     <xf:output value="concat('My ', instance('hello')/demo:PetType, ' has ', instance('hello')/demo:FedTodayStatement , ' been fed today.')" class="block demo-output"/>
     
-    <xf:output bind="test-relevant" value="concat('Display the description only when pet name is ''Blanket'': ', instance('hello')/demo:PetDescription)" class="block demo-output"/>
+    <xf:output bind="test-relevant" value="concat('Display the description only when pet name is ''Scout'': ', instance('hello')/demo:PetDescription)" class="block demo-output"/>
     
     <xf:trigger>
         <xf:label>Demo message</xf:label>
@@ -109,8 +109,8 @@
     </xf:submit>
     
     <xf:trigger id="setvalue-test">
-        <xf:label>Set pet name to 'Blanket'</xf:label>
-        <xf:setvalue ref="instance('hello')/demo:CatName" ev:event="DOMActivate">Blanket</xf:setvalue>
+        <xf:label>Set pet name to 'Scout'</xf:label>
+        <xf:setvalue ref="instance('hello')/demo:CatName" ev:event="DOMActivate">Scout</xf:setvalue>
     </xf:trigger>
     
     

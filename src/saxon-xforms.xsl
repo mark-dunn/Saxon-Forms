@@ -1584,7 +1584,7 @@
         <xsl:param name="actions" as="map(*)*"/>
                 
         <xsl:variable name="instanceField" as="node()?" select="xforms:evaluate-xpath-with-instance-id($nodeset,$instance-context,())"/>                   
-       
+       <xsl:message use-when="$debugMode">[xforms:input in get-html mode] nodeset: <xsl:sequence select="$nodeset"/></xsl:message>
         <xsl:variable name="relevantStatus" as="xs:boolean">
             <xsl:call-template name="getRelevantStatus">
                 <xsl:with-param name="xformsControl" as="element()" select="."/>
@@ -1894,10 +1894,10 @@
                     </xsl:attribute>
                 </xsl:if>
                  
-                <xsl:apply-templates select="xforms:item">
+                <xsl:apply-templates select="xforms:item" mode="#current">
                     <xsl:with-param name="selectedValue" select="$selectedValue"/>
                 </xsl:apply-templates>
-                <xsl:apply-templates select="xforms:itemset"/>
+                <xsl:apply-templates select="xforms:itemset" mode="#current"/>
                 
             </select>
             
@@ -2021,7 +2021,7 @@
         </xd:desc>
         <xd:param name="selectedValue">String consisting of the current selection in the list. (If it matches the value of the xforms:item, the HTML option will be marked as selected.)</xd:param>
     </xd:doc>
-    <xsl:template match="xforms:item">
+    <xsl:template match="xforms:item" mode="get-html">
         <xsl:param name="selectedValue" as="xs:string" select="''"/>
         
         <option>
@@ -2042,7 +2042,9 @@
             <xd:p>Generates HTML option elements according to evaluation of @ref.</xd:p>
         </xd:desc>
     </xd:doc>
-    <xsl:template match="xforms:itemset">
+    <xsl:template match="xforms:itemset" mode="get-html">
+<!--        <xsl:message use-when="$debugMode">[xforms:itemset] Generate HTML for itemset</xsl:message>-->
+        
         <xsl:variable name="properties" as="map(*)">
             <xsl:apply-templates select="." mode="get-properties"/>
         </xsl:variable>
@@ -2942,6 +2944,8 @@
     <xsl:template name="refreshOutputs-JS">
         <xsl:message use-when="$debugMode">[refreshOutputs-JS] START</xsl:message>
         
+        <xsl:variable name="namespace-context-item" as="element()" select="js:getXForm()"/>
+        
         <!-- get all registered outputs -->
         <!-- MD 2018-06-30 : want to use as="xs:string*" but get a cardinality error!? 
         JS data typing thing?
@@ -2953,7 +2957,7 @@
             <xsl:variable name="this-output" as="map(*)" select="js:getOutput($this-key)"/>
             
             <xsl:variable name="log-label" as="xs:string" select="'[refreshOutputs-JS]'"/>
-            <xsl:message use-when="$debugMode"><xsl:sequence select="$log-label"/> Refreshing output ID = '<xsl:sequence select="$this-key"/>'</xsl:message>
+            <xsl:message use-when="$debugMode"><xsl:sequence select="$log-label"/> Refreshing output ID = '<xsl:sequence select="$this-key"/>' (@value = <xsl:sequence select="map:get($this-output,'@value')"/>; @ref = <xsl:sequence select="map:get($this-output,'@ref')"/>; @data-type =  <xsl:sequence select="map:get($this-output,'@data-type')"/>; @instance-context =  <xsl:sequence select="map:get($this-output,'@instance-context')"/>)</xsl:message>
             
             
             <xsl:variable name="xpath" as="xs:string">
@@ -2986,6 +2990,8 @@
             <xsl:variable name="value" as="xs:string?" select="xforms:evaluate-xpath-with-instance-id($xpath-mod,$this-instance-id,())"/>
             
             <xsl:variable name="data-type" as="xs:string?" select="map:get($this-output,'@data-type')"/>
+            
+            <xsl:variable name="itemset" as="element(xforms:itemset)?" select="map:get($this-output,'itemset')"/>
                         
             <xsl:variable name="associated-form-control" select="ixsl:page()//*[@id = $this-key]" as="node()?"/>
                         
@@ -2995,7 +3001,19 @@
                 </xsl:when>
                 
                 <xsl:when test="exists($associated-form-control) and local-name($associated-form-control) = ('input','select','select1')">
+                    <!-- update itemset before calling js:setValue -->
+                    <xsl:if test="exists($itemset)">
+                        <xsl:result-document href="#{$this-key}" method="ixsl:replace-content">
+                            <xsl:apply-templates select="$itemset" mode="get-html">
+                                <xsl:with-param name="default-namespace-context" select="$namespace-context-item" tunnel="yes"/>
+                            </xsl:apply-templates>
+                        </xsl:result-document>
+                    </xsl:if>
+                    
                     <xsl:sequence select="js:setValue($this-key,$value)"/>
+                    
+                    
+                    
                 </xsl:when>
                 <xsl:when test="exists($associated-form-control) and local-name($associated-form-control) = ('iframe')">
                     <xsl:sequence select="js:setSrc($this-key,$value)"/>
@@ -3406,6 +3424,10 @@
                     
                     <xsl:if test="$data-type ne ''">
                         <xsl:map-entry key="'@data-type'" select="$data-type"/>
+                    </xsl:if>
+                    
+                    <xsl:if test="exists(child::xforms:itemset)">
+                        <xsl:map-entry key="'itemset'" select="child::xforms:itemset"/>
                     </xsl:if>
                 </xsl:map>
             </xsl:variable>

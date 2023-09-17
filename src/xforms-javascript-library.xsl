@@ -265,7 +265,7 @@
             return Object.keys(outputs);
         }
                 
-        // repeats is a map of HTML IDs to (parsed) xf:repeat/@nodeset values
+        // repeats is a map of HTML IDs to xf:repeat elements
         var addRepeat = function(name, value){
             repeats[name] = value;
         }
