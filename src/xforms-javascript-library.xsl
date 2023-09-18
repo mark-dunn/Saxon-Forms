@@ -28,7 +28,8 @@
         var repeatIndexMap = {};
         var repeatSizeMap = {};
         var elementsUsingIndexFunction = {};
-                
+        var elementsContextUsingIndexFunction = {};
+        
         var deferredUpdateFlags = {};
                 
         var getCurrentDate = function(){
@@ -332,7 +333,15 @@
         var getElementsUsingIndexFunctionKeys = function() {
             return Object.keys(elementsUsingIndexFunction);
         }
-                
+
+        var setElementContextUsingIndexFunction = function(name, value) {
+            elementsContextUsingIndexFunction[name] = value;
+        } 
+
+        var getElementContextUsingIndexFunction = function(name) {
+            return elementsContextUsingIndexFunction[name];
+        }
+
                 
         var startTime = function(name) {
             console.time(name);
