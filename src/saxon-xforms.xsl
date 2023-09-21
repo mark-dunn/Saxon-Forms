@@ -1031,24 +1031,34 @@
         <xd:param name="context">XPath expression for context node set.</xd:param>
         <xd:param name="instance-id">ID of instance to use as context node.</xd:param>    
     </xd:doc>
-    <xsl:function name="xforms:evaluate-string">
+    <xsl:function name="xforms:evaluate-string" as="xs:string?">
         <xsl:param name="string" as="xs:string"/>
         <xsl:param name="context" as="xs:string"/>
         <xsl:param name="instance-id" as="xs:string"/>
         
-        <xsl:message use-when="$debugMode">[xforms:evaluate-string] Evaluating '<xsl:sequence select="$string"/>'</xsl:message>
+        <xsl:message use-when="$debugMode">[xforms:evaluate-string] Evaluating '<xsl:sequence select="$string"/>' in context '<xsl:sequence select="$context"/>'</xsl:message>
         
         
-        <xsl:analyze-string select="$string" regex="^\s*\{{([^\}}]+)\}}\s*$">
-            <xsl:matching-substring>
-                <xsl:message use-when="$debugMode">[xforms:evaluate-string] Evaluating XPath '<xsl:sequence select="regex-group(1)"/>' in context <xsl:sequence select="$context"/></xsl:message>
-                <xsl:variable name="xpath" select="xforms:resolveXPathStrings($context,regex-group(1))" />
-                <xsl:sequence select="xforms:evaluate-xpath-with-instance-id($xpath,$instance-id,())"/>
-            </xsl:matching-substring>
-            <xsl:non-matching-substring>
-                <xsl:sequence select="$string"/>
-            </xsl:non-matching-substring>
-        </xsl:analyze-string>
+        <!-- 
+            components needed in case of complex values, e.g. class="dc-{@pass}"
+        -->
+        <xsl:variable name="components" as="xs:string*">
+            <xsl:analyze-string select="$string" regex="\{{([^\}}]+)\}}">
+                <xsl:matching-substring>
+                    <xsl:message use-when="$debugMode">[xforms:evaluate-string] Evaluating XPath '<xsl:sequence select="regex-group(1)"/>' in context <xsl:sequence select="$context"/></xsl:message>
+                    <xsl:variable name="xpath" select="normalize-space(regex-group(1))" />
+                    
+                    <xsl:variable name="instanceField" as="node()?" select="xforms:evaluate-xpath-with-instance-id($context,$instance-id,())"/>
+                    
+                    <xsl:value-of select="xforms:evaluate-xpath-with-context-node($xpath,$instanceField,())"/>
+                </xsl:matching-substring>
+                <xsl:non-matching-substring>
+                    <xsl:sequence select="$string"/>
+                </xsl:non-matching-substring>
+            </xsl:analyze-string>
+        </xsl:variable>
+        <xsl:sequence select="fn:string-join($components,'')"/>
+        
     </xsl:function>
    
     <xd:doc scope="component">
@@ -1440,12 +1450,12 @@
         </xsl:variable>
         <xsl:sequence use-when="$debugTiming" select="js:endTime($time-id-get-relevant)" />
         
+        <xsl:variable name="additional-class-values" as="xs:string+" select="('xforms-output')"/>
        
         <xsl:variable name="htmlClass" as="xs:string">
             <xsl:call-template name="getHtmlClass">
-                <xsl:with-param name="xformsControl" as="element()" select="."/>
-                <xsl:with-param name="instanceField" as="node()?" select="$instanceField"/>
-                <xsl:with-param name="initialValues" as="xs:string*" select="('xforms-output')"/>
+                <xsl:with-param name="source-class" as="xs:string?" select="@class"/>
+                <xsl:with-param name="additional-values" as="xs:string*" select="$additional-class-values"/>
             </xsl:call-template>
         </xsl:variable>
         
@@ -1454,7 +1464,6 @@
         <xsl:variable name="time-id-get-html" as="xs:string" select="concat('XForms ', local-name(), ' get HTML ', generate-id())"/>
         <xsl:sequence use-when="$debugTiming" select="js:startTime($time-id-get-html)" />
         <span>    
-<!--            <xsl:attribute name="class" select="$htmlClass"/>-->
             <xsl:attribute name="style" select="if($relevantStatus) then 'display:inline' else 'display:none'" />
             <xsl:apply-templates select="xforms:label"/>            
             <span>
@@ -1474,7 +1483,9 @@
         <!-- register outputs (except those inside a repeat) -->
         <xsl:variable name="time-id-register-outputs" as="xs:string" select="concat('XForms ', local-name(), ' get relevant status ', generate-id())"/>
         
-        <xsl:call-template name="registerOutput"/>
+        <xsl:call-template name="registerOutput">
+            <xsl:with-param name="additional-class-values" select="$additional-class-values"/>
+        </xsl:call-template>
                
         <xsl:message use-when="$debugMode"><xsl:sequence select="$log-label"/> END</xsl:message>
     </xsl:template>
@@ -1506,11 +1517,13 @@
             </xsl:call-template>
         </xsl:variable>
         
+        <xsl:variable name="additional-class-values" as="xs:string+" select="('xforms-input')"/>
+        
         <xsl:variable name="htmlClass" as="xs:string">
             <xsl:call-template name="getHtmlClass">
-                <xsl:with-param name="xformsControl" as="element()" select="."/>
-                <xsl:with-param name="instanceField" as="node()?" select="$instanceField"/>
-                <xsl:with-param name="initialValues" as="xs:string*" select="('xforms-input')"/>
+                <xsl:with-param name="source-class" as="xs:string?" select="@class"/>
+                <xsl:with-param name="additional-values" as="xs:string*" select="$additional-class-values"/>
+                <xsl:with-param name="incremental" as="xs:string?" select="@incremental"/>
             </xsl:call-template>
         </xsl:variable>
         
@@ -1619,6 +1632,7 @@
                 
                 
                 <xsl:call-template name="registerOutput">
+                    <xsl:with-param name="additional-class-values" select="$additional-class-values"/>
                     <xsl:with-param name="data-type" as="xs:string" select="$input-type"/>
                 </xsl:call-template>
                 
@@ -1657,11 +1671,12 @@
             </xsl:call-template>
         </xsl:variable>
         
+        <xsl:variable name="additional-class-values" as="xs:string+" select="('xforms-textarea')"/>
         <xsl:variable name="htmlClass" as="xs:string">
             <xsl:call-template name="getHtmlClass">
-                <xsl:with-param name="xformsControl" as="element()" select="."/>
-                <xsl:with-param name="instanceField" as="node()?" select="$instanceField"/>
-                <xsl:with-param name="initialValues" as="xs:string*" select="('xforms-textarea')"/>
+                <xsl:with-param name="source-class" as="xs:string?" select="@class"/>
+                <xsl:with-param name="additional-values" as="xs:string*" select="$additional-class-values"/>
+                <xsl:with-param name="incremental" as="xs:string?" select="@incremental"/>
             </xsl:call-template>
         </xsl:variable>
         
@@ -1760,11 +1775,12 @@
             </xsl:call-template>
         </xsl:variable>
         
+        <xsl:variable name="additional-class-values" as="xs:string+" select="('xforms-select')"/>
+        
         <xsl:variable name="htmlClass" as="xs:string">
             <xsl:call-template name="getHtmlClass">
-                <xsl:with-param name="xformsControl" as="element()" select="."/>
-                <xsl:with-param name="instanceField" as="node()?" select="$instanceField"/>
-                <xsl:with-param name="initialValues" as="xs:string*" select="('xforms-select')"/>
+                <xsl:with-param name="source-class" as="xs:string?" select="@class"/>
+                <xsl:with-param name="additional-values" as="xs:string*" select="$additional-class-values"/>
             </xsl:call-template>
         </xsl:variable>
                          
@@ -1817,7 +1833,9 @@
             
         </div>
         
-        <xsl:call-template name="registerOutput"/>
+        <xsl:call-template name="registerOutput">
+            <xsl:with-param name="additional-class-values" select="$additional-class-values"/>
+        </xsl:call-template>
 
     </xsl:template>
 
@@ -2156,10 +2174,14 @@
                 <xsl:sequence select="$repeat-items"/>
             </xsl:when>
             <xsl:otherwise>
+                <xsl:variable name="additional-class-values" as="xs:string+" select="('xforms-repeat')"/>
+                
                 <xsl:variable name="htmlClass" as="xs:string">
                     <xsl:call-template name="getHtmlClass">
-                        <xsl:with-param name="xformsControl" as="element()" select="."/>
-                        <xsl:with-param name="initialValues" as="xs:string*" select="('xforms-repeat')"/>
+                        <xsl:with-param name="source-class" as="xs:string?" select="@class"/>
+                        <xsl:with-param name="context-nodeset" select="$nodeset" tunnel="yes"/>
+                        <xsl:with-param name="instance-context" select="$this-instance-id" tunnel="yes"/>
+                        <xsl:with-param name="additional-values" as="xs:string*" select="$additional-class-values"/>
                     </xsl:call-template>
                 </xsl:variable>
                 <div>
@@ -2734,68 +2756,41 @@
     </xsl:function>
     
     <xd:doc scope="component">
-        <xd:desc>Get HTML @class for rendering by combining @class set on XForms control and values determined by relevant status etc.
-        
-        TO DO: 
-        set class as property of XForms item (get-properties mode) by reusing get-data-ref mode but with @class value when it can be evaluated as XPath
-        use @class value only if it is unevaluated, otherwise evaluate property
-        
-        add as part of JS output (registerOutput)
-        use in refreshOutputs-JS to refresh HTML class
-        
-        
+        <xd:desc>Get HTML @class for rendering by combining @class set on XForms control and values determined by relevant status etc.  
+            This template may be called during initial evaluation of the form or when refreshing outputs. In the latter case the original form control is lostd, so we need to use parameters for some fields. These are supplied either from the original form control, or from its registered properties when refreshing outputs.
         </xd:desc>
-        <xd:param name="xformsControl">XForms control element, e.g. input, output. NOTE: could be an HTML rendering of such an element.</xd:param>
-        <xd:param name="instanceField">XForms instande or instance field relevant to the control</xd:param>
-        <xd:param name="isRelevant">Boolean value for relevance - set by evaluating @data-relevant during refresh (see refreshRelevantFields-JS))</xd:param>
-        <xd:param name="initialValues">Optional sequence of strings to be included in the output as class values</xd:param>
+        <xd:param name="context-nodeset">XPath for context of class, in case class contains relative XPath</xd:param>
+        <xd:param name="instance-context">Context instance ID, for XPath evaluation</xd:param>
+        <xd:param name="source-class">Initial @class value from form control. If present, we will override an existing @class. This happens when refreshing outputs, where this template is applied to an HTML element instead of a form control.</xd:param>
+        <xd:param name="additional-values">Optional sequence of strings to be included in the output as class values</xd:param>
+        <xd:param name="incremental">Value of form control's @incremental attribute</xd:param>
     </xd:doc>
     <xsl:template name="getHtmlClass" as="xs:string">
-        <xsl:param name="xformsControl" as="element()" required="yes"/>
-        <xsl:param name="instanceField" as="node()?"/>
-        <xsl:param name="isRelevant" as="xs:boolean" required="no" select="fn:true()"/>
-        <xsl:param name="initialValues" as="xs:string*"/>
         <xsl:param name="context-nodeset" as="xs:string?" tunnel="yes"/>
         <xsl:param name="instance-context" as="xs:string?" tunnel="yes"/>
+        <xsl:param name="source-class" as="xs:string?"/>
+        <xsl:param name="additional-values" as="xs:string*"/>
+        <xsl:param name="incremental" as="xs:string?"/>
         
         <xsl:message use-when="$debugMode">[getHtmlClass] START</xsl:message>
         
-        <xsl:variable name="relevantStatus" as="xs:boolean">
-            <xsl:call-template name="getRelevantStatus">
-                <xsl:with-param name="xformsControl" as="element()" select="."/>
-                <xsl:with-param name="instanceField" as="node()?" select="$instanceField"/>
-            </xsl:call-template>
-        </xsl:variable>
         
         
-        <xsl:variable name="class" as="xs:string?">
-            <xsl:if test="exists($xformsControl/@class)">
-                <xsl:message use-when="$debugMode">[getHtmlClass] Evaluating @class attribute '<xsl:value-of select="$xformsControl/@class"/>'</xsl:message>
-                <!--<xsl:value-of select="xforms:evaluate-string($xformsControl/@class,$context-nodeset,$instance-context)"/>-->
-                <xsl:value-of select="$xformsControl/@class"/>
-            </xsl:if>
-        </xsl:variable>
+        <xsl:message use-when="$debugMode">[getHtmlClass] Evaluating @class attribute: '<xsl:value-of select="$source-class"/>'</xsl:message>
         
-        <xsl:message use-when="$debugMode">[getHtmlClass] @class = '<xsl:sequence select="$class"/>'; relevant? <xsl:sequence select="$relevantStatus"/></xsl:message>
+        <xsl:variable name="class" as="xs:string?" select="if (exists($source-class)) then xforms:evaluate-string($source-class,$context-nodeset,$instance-context) else ()"/>
+        
+        
+        <xsl:message use-when="$debugMode">[getHtmlClass] @class = '<xsl:sequence select="$class"/>'</xsl:message>
         
         <xsl:variable name="class-mod" as="xs:string*">
-            <!-- start with any existing class values, except (ir)relevant -->
-            <xsl:sequence select="fn:tokenize($class,'\s+')[not(. = ('irrelevant','relevant'))]"/>
-            <!-- include any "seed" values -->
-            <xsl:sequence select="$initialValues"/>
-            <xsl:if test="exists($xformsControl/@incremental)">
+            <xsl:sequence select="fn:tokenize($class,'\s+')"/>
+            <!-- include any additional "seed" values -->
+            <xsl:sequence select="$additional-values"/>
+            <xsl:if test="$incremental eq 'true'">
                 <xsl:sequence select="'incremental'"/>
             </xsl:if>
-            <xsl:choose>
-                <xsl:when test="$relevantStatus">
-                    <xsl:sequence select="'relevant'"/>
-                </xsl:when>
-                <xsl:otherwise>
-                    <xsl:sequence select="'irrelevant'"/>
-<!--                    <xsl:sequence select="if($isRelevant) then 'relevant' else 'irrelevant'"/>-->
-                </xsl:otherwise>
-            </xsl:choose>
-        </xsl:variable>
+         </xsl:variable>
         
         <xsl:sequence select="string-join($class-mod,' ')"/>
         
@@ -2955,6 +2950,26 @@
                     <xsl:message>[refreshOutputs-JS] Can't find form control with ID '<xsl:sequence select="$this-key"/>'</xsl:message>
                 </xsl:otherwise>
             </xsl:choose>
+            
+            <!-- update class (value may include XPath) -->
+            
+            <xsl:variable name="xforms-class" as="xs:string?" select="map:get($this-output,'@class')"/>
+            <xsl:variable name="context-nodeset" as="xs:string?" select="map:get($this-output,'@context-nodeset')"/>
+            <xsl:variable name="additional-class-values" as="xs:string*" select="map:get($this-output,'@additional-class-values')"/>
+            <xsl:variable name="incremental" as="xs:string?" select="map:get($this-output,'@incremental')"/>  
+            
+            <xsl:variable name="htmlClass" as="xs:string?">
+                <xsl:call-template name="getHtmlClass">
+                    <xsl:with-param name="context-nodeset" select="$context-nodeset" tunnel="yes"/>
+                    <xsl:with-param name="instance-context" select="$this-instance-id" tunnel="yes"/>
+                    <xsl:with-param name="source-class" select="$xforms-class"/>
+                    <xsl:with-param name="additional-values" select="$additional-class-values"/>
+                    <xsl:with-param name="incremental" select="$incremental"/>
+                </xsl:call-template>
+            </xsl:variable>
+            
+            <ixsl:set-attribute name="class" select="$htmlClass" object="$associated-form-control"/>
+            
         </xsl:for-each>
         
         <xsl:message use-when="$debugMode">[refreshOutputs-JS] END</xsl:message>
@@ -3018,17 +3033,16 @@
             -->
             <xsl:variable name="htmlWrapper" as="element()?" select="./parent::*"/>
             
-            <xsl:variable name="htmlClass" as="xs:string?">
+            <!--<xsl:variable name="htmlClass" as="xs:string?">
                 <xsl:call-template name="getHtmlClass">
-                    <xsl:with-param name="xformsControl" select="."/>
-                    <xsl:with-param name="isRelevant" select="$relevantStatus"/>
+                    
                 </xsl:call-template>
-            </xsl:variable>
+            </xsl:variable>-->
             
-            <ixsl:set-attribute name="class" select="$htmlClass" object="."/>
+           <!-- <ixsl:set-attribute name="class" select="$htmlClass" object="."/>
             <xsl:if test="exists($htmlWrapper)">
                 <ixsl:set-attribute name="class" select="$htmlClass" object="$htmlWrapper"/>
-            </xsl:if>
+            </xsl:if>-->
             
             <xsl:choose>
                 <xsl:when test="$relevantStatus">
@@ -3321,13 +3335,14 @@
 
     <xd:doc scope="component">
         <xd:desc>
-            <xd:p>registerOutput: create map of an xforms:output (or xforms:input) whose value may be updated e.g. during an xforms-refresh. This element ios the context node.</xd:p>
+            <xd:p>registerOutput: create map of an xforms:output (or xforms:input) whose value may be updated e.g. during an xforms-refresh. This element is the context node.</xd:p>
         </xd:desc>
         <xd:param name="id">ID of HTML element.</xd:param>
         <xd:param name="nodeset">XPath binding expression</xd:param>
         <xd:param name="context-nodeset">XPath binding expression for context node (used if @value contains context() function)</xd:param>
         <xd:param name="instance-context">ID of XForms instance relevant to this control</xd:param>
         <xd:param name="data-type">String identifying data type of an input. Required to support setting its value in the appropriate way</xd:param>
+        <xd:param name="additional-class-values">Any additional class values we want to set. Need to register them here so they can be applied again when refreshing outputs.</xd:param>
     </xd:doc>
     <xsl:template name="registerOutput">
         <xsl:param name="id" as="xs:string" tunnel="yes"/>
@@ -3335,6 +3350,7 @@
         <xsl:param name="context-nodeset" as="xs:string" tunnel="yes"/>
         <xsl:param name="instance-context" as="xs:string" tunnel="yes"/>
         <xsl:param name="data-type" as="xs:string" required="no" select="''"/>
+        <xsl:param name="additional-class-values" as="xs:string*"/>
         
         <xsl:sequence use-when="$debugTiming" select="js:startTime($time-id-register-outputs)" />
         
@@ -3342,6 +3358,7 @@
             <xsl:variable name="output-map" as="map(*)">
                 <xsl:map>
                     <xsl:map-entry key="'@instance-context'" select="$instance-context"/>
+                    <xsl:map-entry key="'@context-nodeset'" select="$context-nodeset"/>
                     
                     <xsl:if test="$nodeset != ''">
                         <xsl:map-entry key="'@ref'" select="xs:string($nodeset)" />
@@ -3353,6 +3370,17 @@
                     
                     <xsl:if test="$data-type ne ''">
                         <xsl:map-entry key="'@data-type'" select="$data-type"/>
+                    </xsl:if>
+                    
+                    <xsl:if test="exists(@incremental)">
+                        <xsl:map-entry key="'@incremental'" select="string(@incremental)"/>
+                    </xsl:if>
+                    
+                    <xsl:if test="exists(@class)">
+                        <xsl:map-entry key="'@class'" select="string(@class)"/>
+                    </xsl:if>
+                    <xsl:if test="exists($additional-class-values)">
+                        <xsl:map-entry key="'@additional-class-values'" select="$additional-class-values"/>
                     </xsl:if>
                     
                     <xsl:if test="exists(child::xforms:itemset)">
