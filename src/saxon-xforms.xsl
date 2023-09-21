@@ -686,7 +686,7 @@
         <xsl:variable name="context-nodeset" as="xs:string" select="map:get($this-properties,'context-nodeset')"/>
         <xsl:variable name="this-instance-id" as="xs:string" select="map:get($this-properties,'instance-context')"/>
         
-        <!--<xsl:message use-when="$debugMode"><xsl:sequence select="$log-label"/> $refi = <xsl:sequence select="$refi"/></xsl:message>-->
+<!--        <xsl:message use-when="$debugMode"><xsl:sequence select="$log-label"/> $refi = <xsl:sequence select="$refi"/></xsl:message>-->
         
         <xsl:variable name="action-map" as="map(*)">
             <xsl:map>
@@ -775,11 +775,9 @@
                     <xsl:map-entry key="'@origin'" select="$origin-ref" />    
                 </xsl:if>
                 
-                <xsl:if test="exists(@context)">
-                    <xsl:map-entry key="'@context'" select="xforms:resolveXPathStrings($nodeset,@context)" />   
-                    
-                    <!--<xsl:message use-when="$debugMode"><xsl:sequence select="$log-label"/> @context = <xsl:sequence select="xforms:resolveXPathStrings($nodeset,@context)"/></xsl:message>-->
-                </xsl:if>
+                <xsl:map-entry key="'@context'" select="if (exists(@context)) then xforms:resolveXPathStrings($nodeset,@context) else $nodeset" />   
+                
+                <!--<xsl:message use-when="$debugMode"><xsl:sequence select="$log-label"/> @context = <xsl:sequence select="xforms:resolveXPathStrings($nodeset,@context)"/></xsl:message>-->
                 
                 <!-- https://www.w3.org/TR/xforms11/#action-toggle -->
                 <xsl:if test="exists(@case)">
@@ -3154,7 +3152,6 @@
             <xsl:choose>
                 <!-- try evaluating @context first -->
                 <xsl:when test="exists($context) and not($context = '')">
-                    
                     <!--<xsl:message use-when="$debugMode"><xsl:sequence select="$log-label"/> context node: <xsl:sequence select="fn:serialize($context)"/></xsl:message>-->
                     <xsl:sequence select="xforms:evaluate-xpath-with-context-node($context,$instanceXML,())"/>
                 </xsl:when>
@@ -3188,7 +3185,8 @@
                 <xsl:when test="exists($ifVar) and exists($context-node) and empty($iterate-ref)">
                     <!-- don't evaluate 'if' statement if there's an iterate -->
                     <xsl:message use-when="$debugMode">[applyActions] applying @if = <xsl:sequence select="$ifVar"/> in context <xsl:sequence select="fn:serialize($context-node)"/></xsl:message>
-                    <xsl:sequence select="xforms:evaluate-xpath-with-context-node($ifVar,$context-node,())"/>
+                    <xsl:variable name="evaluation-result" select="xforms:evaluate-xpath-with-context-node($ifVar,$context-node,())"/>
+                    <xsl:sequence select="boolean($evaluation-result)"/>
                 </xsl:when>
                 <xsl:otherwise>
                     <xsl:sequence select="true()" />
@@ -3197,11 +3195,12 @@
         </xsl:variable>
         
         <!--<xsl:message use-when="$debugMode">[applyActions] $ifExecuted = <xsl:sequence select="$ifExecuted"/></xsl:message>-->
-        
+                
         <xsl:variable name="isWhileTrue" as="xs:boolean">
             <xsl:choose>
                 <xsl:when test="exists($whileVar) and exists($context-node)">
-                    <xsl:sequence select="xforms:evaluate-xpath-with-context-node($whileVar,$context-node,())"/>
+                    <xsl:variable name="evaluation-result" select="xforms:evaluate-xpath-with-context-node($whileVar,$context-node,())"/>
+                    <xsl:sequence select="boolean($evaluation-result)"/>
                 </xsl:when>
                 <xsl:otherwise>
                     <xsl:sequence select="true()" />
@@ -3302,8 +3301,9 @@
             <xsl:variable name="isWhileStillTrue" as="xs:boolean">
                 <xsl:choose>
                     <xsl:when test="exists($whileVar) and exists($context-node)">
-                        <xsl:sequence select="xforms:evaluate-xpath-with-context-node($whileVar,$context-node,())"/>
-                    </xsl:when>
+                        <xsl:variable name="evaluation-result" select="xforms:evaluate-xpath-with-context-node($whileVar,$context-node,())"/>
+                        <xsl:sequence select="boolean($evaluation-result)"/>
+                     </xsl:when>
                     <xsl:otherwise>
                         <!-- 
                             don't go back round the loop unless there is a @while
