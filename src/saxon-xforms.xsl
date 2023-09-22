@@ -150,7 +150,10 @@
         
         <xsl:message use-when="$debugMode">[xformsjs-main] START</xsl:message>
 
-        <xsl:apply-templates select="ixsl:page()/*:html/*:head" mode="set-js"/>
+        <!-- $xforms-doc-local helps to support XForms in an iframe -->
+        <xsl:variable name="xforms-doc-local" as="document-node()" select="ixsl:page()"/>
+
+        <xsl:apply-templates select="$xforms-doc-local/*:html/*:head" mode="set-js"/>
         
        
         <!-- 
@@ -167,6 +170,10 @@
                 <xsl:when test="fn:doc-available($xforms-file)">
                     <xsl:sequence select="fn:doc($xforms-file)"/>
                 </xsl:when>
+                <!-- if the "global" xforms doc is HTML we take this (iframe) HTML  -->
+                <xsl:when test="exists($xforms-doc-global/xhtml:html)">
+                    <xsl:sequence select="$xforms-doc-local"/>
+                </xsl:when>
                 <xsl:when test="$xforms-doc-global">
                     <xsl:sequence select="$xforms-doc-global"/>
                 </xsl:when>
@@ -181,7 +188,9 @@
         
         
         <xsl:variable name="xform-doc-ns" as="document-node()" select="xforms:addNamespaceDeclarationsToDocument($xforms-doci)"/>  
-        <xsl:variable name="xform" as="element()" select="xforms:addNamespaceDeclarations($xforms-doci/*)"/>  
+        <xsl:variable name="xform" as="element()" select="$xform-doc-ns/*"/>  
+        
+        <xsl:message use-when="$debugMode">[xformsjs-main] doc with ns added: <xsl:sequence select="fn:serialize($xform)"/></xsl:message>
         
         <xsl:variable name="models" as="element(xforms:model)*" select="$xform-doc-ns/(xforms:xform|xhtml:html/xhtml:head)/xforms:model"/>
         <xsl:variable name="first-model" as="element(xforms:model)?" select="$models[1]"/>
@@ -531,7 +540,7 @@
         <xsl:variable name="context-model" as="element(xforms:model)" select="
             ($models-global[@id = $model-ref], ./ancestor::xforms:model, $models-global[1])[1]"/>
         
-        <xsl:variable name="context-nodeset" as="xs:string" select="if (exists(@context)) then xforms:resolveXPathStrings($nodeset,@context) else $nodeset"/>
+        <xsl:variable name="context-nodeset" as="xs:string" select="if (exists(@context)) then xforms:resolveXPathStrings($nodeset,@context) else (if ($nodeset ne '') then $nodeset else ('instance(''' || $default-instance-id || ''')'))"/>
         
         <!-- empty if @iterate not set (so we only set the 'iterate' property when there is iteration) -->
         <xsl:variable name="context-nodeset-iterate" as="xs:string?" select="if (exists(@iterate)) then xforms:resolveXPathStrings($context-nodeset,@iterate) else ()"/>
@@ -564,7 +573,7 @@
             </xsl:choose>           
         </xsl:variable>
         
-        <!--<xsl:message use-when="$debugMode"><xsl:sequence select="$log-label"/> $refi = <xsl:sequence select="$refi"/></xsl:message>-->
+        <xsl:message use-when="$debugMode"><xsl:sequence select="$log-label"/> $refi = <xsl:sequence select="$refi"/></xsl:message>
         
         <xsl:variable name="instance-context" as="xs:string">
             <xsl:choose>
@@ -624,7 +633,7 @@
                     </xsl:for-each>
                 </xsl:when>
                 <xsl:otherwise>
-                    <xsl:message use-when="$debugMode"><xsl:sequence select="$log-label"/> No binding found matching nodeset</xsl:message>
+                    <!--<xsl:message use-when="$debugMode"><xsl:sequence select="$log-label"/> No binding found matching nodeset</xsl:message>-->
                 </xsl:otherwise>
             </xsl:choose>
         </xsl:variable>
@@ -914,16 +923,16 @@
         <xsl:variable name="full-path" as="xs:string">
             <xsl:choose>
                 <xsl:when test="starts-with($relative,'/')">
-                    <xsl:sequence select="$relative"/>
-                   <!-- <!-\- remove root element from XPath -\->
+<!--                    <xsl:sequence select="$relative"/>-->
+                    <!-- remove root element from XPath -->
                     <xsl:analyze-string select="$relative" regex="^/[^/]+/(.*)$">
                         <xsl:matching-substring>
-                            <xsl:sequence select="regex-group(1)"/>
+                            <xsl:sequence select="$base || '/' || regex-group(1)"/>
                         </xsl:matching-substring>
                         <xsl:non-matching-substring>
                             <xsl:message>[xforms:resolveXPathStrings] Invalid XPath: '<xsl:value-of select="$relative"/>'</xsl:message>
                         </xsl:non-matching-substring>
-                    </xsl:analyze-string>-->
+                    </xsl:analyze-string>
                 </xsl:when>
                 <xsl:when test="starts-with($relative,'instance(')">
                     <xsl:sequence select="$relative"/>
@@ -1505,9 +1514,10 @@
         <xsl:param name="instance-context" as="xs:string" tunnel="yes"/>
         <xsl:param name="binding" as="element(xforms:bind)*" tunnel="yes"/>
         <xsl:param name="actions" as="map(*)*"/>
-                
+               
+        <xsl:message use-when="$debugMode">[xforms:input in get-html mode] nodeset: <xsl:sequence select="$nodeset"/></xsl:message>
+        
         <xsl:variable name="instanceField" as="node()?" select="xforms:evaluate-xpath-with-instance-id($nodeset,$instance-context,())"/>                   
-       <xsl:message use-when="$debugMode">[xforms:input in get-html mode] nodeset: <xsl:sequence select="$nodeset"/></xsl:message>
         <xsl:variable name="relevantStatus" as="xs:boolean">
             <xsl:call-template name="getRelevantStatus">
                 <xsl:with-param name="xformsControl" as="element()" select="."/>
@@ -2637,24 +2647,6 @@
     
     <xd:doc scope="component">
         <xd:desc>Add all relevant namespace declarations to the xform element, to help with xsl:evaluation</xd:desc>
-        <xd:param name="this">Element for which namespaces are needed</xd:param>
-    </xd:doc>
-    <xsl:function name="xforms:addNamespaceDeclarations" as="element()">
-        <xsl:param name="this" as="element()"/>
-        <xsl:variable name="default-namespace" as="xs:anyURI" select="$this/namespace-uri()"/>
-        <xsl:element name="{name($this)}" namespace="{$default-namespace}">
-            <xsl:namespace name="xforms" select="'http://www.w3.org/2002/xforms'"/>
-            <xsl:for-each select="$this//*[not(namespace-uri() = ('','http://www.w3.org/2002/xforms',$default-namespace))][not(namespace-uri() = (ancestor::*/namespace-uri(),preceding::*/namespace-uri()))]">
-                <xsl:variable name="new-namespace" select="namespace-uri(.)"/>
-                <xsl:variable name="new-prefix" select="substring-before(name(),':')"/>
-                <xsl:namespace name="{$new-prefix}" select="$new-namespace"/>
-            </xsl:for-each>
-            <xsl:sequence select="$this/@*,$this/node()"/>
-        </xsl:element>
-    </xsl:function>
-    
-    <xd:doc scope="component">
-        <xd:desc>Add all relevant namespace declarations to the xform element, to help with xsl:evaluation</xd:desc>
         <xd:param name="this">Document for which namespaces are needed</xd:param>
     </xd:doc>
     <xsl:function name="xforms:addNamespaceDeclarationsToDocument" as="document-node()">
@@ -2663,18 +2655,16 @@
         <xsl:document>
             <xsl:variable name="default-namespace" as="xs:anyURI" select="$this/*/namespace-uri()"/>
             <xsl:message use-when="$debugMode">[xforms:addNamespaceDeclarationsToDocument] <xsl:sequence select="if (name($this/*) eq 'html') then '&quot;' || string($this/*/*:head/*:title) || '&quot; ' else ()"/>Default namespace of root <xsl:sequence select="name($this/*)"/>: <xsl:sequence select="$default-namespace"/></xsl:message>
-            <xsl:element name="{name($this/*)}" namespace="{$default-namespace}">
+            <xsl:copy select="$this/*" copy-namespaces="yes">
                 <xsl:namespace name="xforms" select="'http://www.w3.org/2002/xforms'"/>
                 <xsl:for-each select="$this//*[not(namespace-uri() = ('','http://www.w3.org/2002/xforms',$default-namespace))][not(namespace-uri() = (ancestor::*/namespace-uri(),preceding::*/namespace-uri()))]">
                     <xsl:variable name="new-namespace" select="namespace-uri(.)"/>
-                    <xsl:variable name="new-prefix" select="substring-before(name(),':')"/>
-                    <xsl:if test="exists($new-prefix)">
-                        <!--<xsl:message use-when="$debugMode">[xforms:addNamespaceDeclarationsToDocument] Adding namespace to root <xsl:sequence select="name($this/*)"/>: <xsl:sequence select="$new-prefix"/>=<xsl:sequence select="$new-namespace"/></xsl:message>-->
-                        <xsl:namespace name="{$new-prefix}" select="$new-namespace"/>
-                    </xsl:if>
+                    <xsl:variable name="new-prefix-1" as="xs:string" select="substring-before(name(),':')"/>
+                    <xsl:variable name="new-prefix" as="xs:string" select="if ($new-prefix-1 ne '') then $new-prefix-1 else ('ns' || fn:position())"/><xsl:namespace name="{$new-prefix}" select="$new-namespace"/>
                 </xsl:for-each>
                 <xsl:sequence select="$this/*/@*,$this/*/node()"/>
-            </xsl:element>
+            </xsl:copy>
+            
         </xsl:document>    
     </xsl:function>
     
@@ -4377,7 +4367,7 @@
                                 </xsl:apply-templates>
                             </xsl:variable>
                             
-                            <xsl:message use-when="$debugMode">[action-setvalue-inner] updated instance <xsl:sequence select="serialize($updatedInstanceXML)"/></xsl:message>
+                            <!--<xsl:message use-when="$debugMode">[action-setvalue-inner] updated instance <xsl:sequence select="serialize($updatedInstanceXML)"/></xsl:message>-->
                             <xsl:sequence select="js:setInstance($instance-id,$updatedInstanceXML)"/>
                             
                         </xsl:if>
