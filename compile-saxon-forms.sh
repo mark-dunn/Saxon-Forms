@@ -1,2 +1,6 @@
-node /usr/local/lib/node_modules/xslt3/xslt3.js -t -xsl:src/saxon-xforms.xsl -export:sef/saxon-xforms.sef.json -nogo -ns:##html5
-cp sef/saxon-xforms.sef.json ../exist-db-recipes/recipes/resources/sef/.
+sudo npx xslt3-he \
+-t -xsl:/Users/mark/GitHub/Saxon-Forms/src/saxon-xforms.xsl \
+-export:/Users/mark/GitHub/Saxon-Forms/sef/saxon-xforms.sef.json \
+-nogo \
+-ns:##html5
+cp /Users/mark/GitHub/Saxon-Forms/sef/saxon-xforms.sef.json /Users/mark/GitHub/exist-db-recipes/recipes/resources/sef/.
