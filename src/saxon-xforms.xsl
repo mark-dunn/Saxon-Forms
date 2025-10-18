@@ -190,6 +190,10 @@
         <xsl:variable name="xform-doc-ns" as="document-node()" select="xforms:addNamespaceDeclarationsToDocument($xforms-doci)"/>  
         <xsl:variable name="xform" as="element()" select="$xform-doc-ns/*"/>  
         
+        <!-- populate Javascript variables -->
+        <xsl:sequence select="js:setXFormsDoc($xform-doc-ns)"/>
+        <xsl:sequence select="js:setXForm($xform)"/>
+        
         <xsl:variable name="models" as="element(xforms:model)*" select="$xform-doc-ns/(xforms:xform|xhtml:html/xhtml:head)/xforms:model"/>
         <xsl:variable name="first-model" as="element(xforms:model)?" select="$models[1]"/>
         <xsl:variable name="first-model-id" as="attribute()?" select="$first-model/@id"/>
@@ -213,14 +217,29 @@
                 <xsl:with-param name="default-model-id" select="$default-model-id" tunnel="yes"/>
                 <xsl:with-param name="default-instance-id" select="$default-instance-id" tunnel="yes"/>
                 <xsl:with-param name="default-namespace-context" select="$xform-doc-ns/*" tunnel="yes"/>
-            </xsl:call-template>                       
+            </xsl:call-template>   
+            
+            <!-- register actions for model (before dispatching xforms-model-construct event) -->
+            <xsl:apply-templates select=".">
+                <xsl:with-param name="bindings-js" select="js:getBindings()" as="element(xforms:bind)*" tunnel="yes"/>
+                <xsl:with-param name="model-key" select="(@id,$default-model-id)[1]" tunnel="yes"/>
+                <xsl:with-param name="default-instance-id" select="$default-instance-id" tunnel="yes"/>
+                <xsl:with-param name="default-namespace-context" select="$xform-doc-ns/*" tunnel="yes"/>
+            </xsl:apply-templates>
+            
+            <xsl:call-template name="xforms-event-handler">
+                <xsl:with-param name="event-name" as="xs:string" select="'xforms-model-construct'" tunnel="yes"/>
+            </xsl:call-template>
         </xsl:for-each> 
         
-        <!-- populate Javascript variables -->
-        <xsl:sequence select="js:setXFormsDoc($xform-doc-ns)"/>
+       
         
-        <xsl:sequence select="js:setXForm($xform)"/>
-        <!-- clear deferred update flags only if we're building from scratch -->
+        <xsl:call-template name="xforms-event-handler">
+            <xsl:with-param name="event-name" as="xs:string" select="'xforms-model-construct-done'" tunnel="yes"/>
+        </xsl:call-template>
+        
+        
+         <!-- clear deferred update flags only if we're building from scratch -->
         <xsl:if test="empty($instance-docs)">
             <xsl:sequence select="js:clearDeferredUpdateFlags()" />    
         </xsl:if>
@@ -264,7 +283,7 @@
         <xsl:choose>
             <xsl:when test="exists($xform-doc-ns/xhtml:html)">
                 <xsl:message use-when="$debugMode">[xformsjs-main] Replacing HTML body</xsl:message>
-                <xsl:apply-templates select="$models,ixsl:page()/xhtml:html/xhtml:body">
+                <xsl:apply-templates select="ixsl:page()/xhtml:html/xhtml:body">
                     <xsl:with-param name="bindings-js" select="js:getBindings()" as="element(xforms:bind)*" tunnel="yes"/>
                     <xsl:with-param name="submissions" select="$submissions" as="map(xs:string, map(*))" tunnel="yes"/>
                     <xsl:with-param name="model-key" select="$default-model-id" tunnel="yes"/>
@@ -299,7 +318,8 @@
         <!-- 
             MJD 2025-10-17 need to pass bindings at least
         -->
-        <xsl:call-template name="xforms-ready">
+        <xsl:call-template name="xforms-event-handler">
+            <xsl:with-param name="event-name" select="'xforms-ready'" as="xs:string" tunnel="yes"/>
             <xsl:with-param name="bindings-js" select="js:getBindings()" as="element(xforms:bind)*" tunnel="yes"/>
             <xsl:with-param name="submissions" select="$submissions" as="map(xs:string, map(*))" tunnel="yes"/>
             <xsl:with-param name="model-key" select="$default-model-id" tunnel="yes"/>
@@ -595,7 +615,7 @@
                 <xsl:when test="exists($binding-referenced-by-id)"/>
                 <xsl:when test="$refi != '' and exists($bindings-this-instance)">
                     <xsl:variable name="nodeset-mod" as="xs:string" select="xforms:impose($refi)"/>
-                    <xsl:variable name="instanceXML" as="element()">
+                    <xsl:variable name="instanceXML" as="element()?">
                         <xsl:variable name="intanceXMLWithID" as="element()?" select="$context-model/xforms:instance[@id = $instance-context]"/>
                         <xsl:choose>
                             <xsl:when test="exists($intanceXMLWithID)">
@@ -607,7 +627,7 @@
                         </xsl:choose>
                     </xsl:variable>
                     
-                    <xsl:for-each select="$bindings-this-instance">
+                    <xsl:for-each select="$bindings-this-instance[exists($instanceXML)]">
                         <xsl:variable name="binding-nodeset-mod" as="xs:string" select="xforms:impose(xs:string(@nodeset))"/>
                         
                         <xsl:variable name="context-node" as="node()*" select="xforms:evaluate-xpath-with-context-node($nodeset-mod,$instanceXML,$default-namespace-context)"/>
@@ -746,6 +766,19 @@
                 <xsl:if test="exists(@*:event)">
                     <xsl:map-entry key="'@event'" select="string(@*:event)" />
                 </xsl:if>
+                
+                <!-- attributes of dispatch action -->
+                <xsl:if test="exists(@name)">
+                    <xsl:map-entry key="'@name'" select="string(@name)" />
+                </xsl:if>
+                <xsl:if test="exists(@targetid)">
+                    <xsl:map-entry key="'@targetid'" select="string(@targetid)" />
+                </xsl:if>
+                <xsl:if test="exists(@delay)">
+                    <xsl:map-entry key="'@delay'" select="string(@delay)" />
+                </xsl:if>
+                
+                
                 <xsl:if test="exists(@submission)">
                     <xsl:map-entry key="'@submission'" select="string(@submission)" />
                 </xsl:if>
@@ -817,7 +850,8 @@
         
         <xsl:sequence select="$action-map"/>
         <xsl:if test="exists(@*:event)">
-            <xsl:sequence select="js:addEventAction( string(@*:event), $action-map )"/>    
+            <xsl:variable name="event-actions" as="map(*)*" select="js:getEventAction(string(@*:event))"/>
+            <xsl:sequence select="js:addEventAction( string(@*:event), ($event-actions,$action-map) )"/>    
         </xsl:if>
 
         <xsl:sequence use-when="$debugTiming" select="js:endTime($time-id)" />
@@ -1167,9 +1201,10 @@
          
         <xsl:choose>
               <xsl:when test="empty($response)">
-                  <xsl:call-template name="serverError">
+                  <xsl:message>++++++++++++ ERROR +++++++++++++</xsl:message>
+                  <!--<xsl:call-template name="serverError">
                       <xsl:with-param name="responseMap" select="."/>
-                  </xsl:call-template>
+                  </xsl:call-template>-->
               </xsl:when>
 
 
@@ -1265,7 +1300,7 @@
         <xsl:variable name="model-ref" as="xs:string" select="if (exists(@id)) then string(@id) else $model-key"/>
         
         <xsl:variable name="actions" as="map(*)*">
-            <xsl:apply-templates select="xforms:action" mode="set-action">
+            <xsl:apply-templates select="xforms:action | xforms:*[local-name() = $xforms-actions]" mode="set-action">
                 <xsl:with-param name="model-key" select="$model-ref" tunnel="yes"/>
             </xsl:apply-templates>
         </xsl:variable>
@@ -3219,9 +3254,9 @@
                 <xsl:when test="$action-name = 'setfocus'">
                     <xsl:call-template name="action-setfocus"/>
                 </xsl:when>
-                <!--<xsl:when test="$action-name = 'dispatch'">
+                <xsl:when test="$action-name = 'dispatch'">
                     <xsl:call-template name="action-dispatch"/>
-                </xsl:when>-->
+                </xsl:when>
                 <xsl:when test="$action-name = 'rebuild'">
                     <xsl:call-template name="xforms-rebuild"/>
                 </xsl:when>
@@ -3573,8 +3608,7 @@
                 </xsl:if>
             </xsl:if>
         </xsl:for-each>
-        
-         
+                        
         <xsl:call-template name="xforms-rebuild">
             <xsl:with-param name="get-bindings" as="xs:boolean" select="true()"/>
             <xsl:with-param name="model-key" as="xs:string" select="$model-key" tunnel="yes"/>
@@ -3994,21 +4028,24 @@
                 <!-- 
                     https://www.saxonica.com/saxonjs/documentation3/index.html#!ixsl-extension/instructions/promise 
                 https://www.w3.org/TR/xslt-30/#dynamic-component-references
-                -->
-                <ixsl:promise select="ixsl:http-request($HTTPrequest)"
-                on-completion="xforms:HTTPsubmit(?, $instance-id-update, $submission-map, $actions)"
-                on-failure="xforms:serverError#1"/>
                 
-               <!-- <ixsl:schedule-action http-request="$HTTPrequest">
-                    <!-\- The value of @http-request is an XPath expression, which evaluates to an 'HTTP request
-                            map' - i.e. our representation of an HTTP request as an XDM map -\->
+                Having problems getting this to work,
+                error message relating to context item
+                -->
+                <!--<ixsl:promise select="ixsl:http-request($HTTPrequest)"
+                on-completion="xforms:HTTPsubmit(?, $instance-id-update, $submission-map, $actions)"
+                on-failure="xforms:serverError#1"/>-->
+                
+                <ixsl:schedule-action http-request="$HTTPrequest">
+                    <!-- The value of @http-request is an XPath expression, which evaluates to an 'HTTP request
+                            map' - i.e. our representation of an HTTP request as an XDM map -->
                     <xsl:call-template name="HTTPsubmit">
                         <xsl:with-param name="instance-id" select="$instance-id-update" as="xs:string"/>
                         <xsl:with-param name="targetref" select="map:get($submission-map,'@targetref')"/>
                         <xsl:with-param name="replace" select="map:get($submission-map,'@replace')"/>
                         <xsl:with-param name="when-done" select="$actions[map:get(.,'@event') = 'xforms-submit-done']" tunnel="yes"/>
                     </xsl:call-template>
-                </ixsl:schedule-action>-->
+                </ixsl:schedule-action>
                 
                 
             </xsl:when>
@@ -4049,6 +4086,18 @@
             <xsl:with-param name="when-done" select="$actions[map:get(.,'@event') = 'xforms-submit-done']" tunnel="yes"/>
         </xsl:call-template>
     </xsl:function>
+    
+    <xd:doc scope="component">
+        <xd:desc>
+            <xd:p>Function xforms:eventHandler() is the on-completion action of the ixsl:promise instruction in the action-dispatch template. (Used to set a delay on the action.)</xd:p>
+        </xd:desc>
+    </xd:doc>
+    <!--<xsl:function name="xforms:eventHandler">
+        <xsl:variable name="event-name" as="xs:string" select="js:getTempEventName()"/>
+        <xsl:call-template name="xforms-event-handler">
+            <xsl:with-param name="event-name" select="$event-name" as="xs:string" tunnel="yes"/>
+        </xsl:call-template>
+    </xsl:function>-->
     
     <xd:doc scope="component">
         <xd:desc>
@@ -4158,15 +4207,19 @@
     
     <xd:doc scope="component">
         <xd:desc>
-            <xd:p>Implementation of a xforms-ready event</xd:p>
+            <xd:p>Implementation of a generic XForms event handler.</xd:p>
+            <xd:p>See <xd:a href="https://www.w3.org/TR/xforms20/#Events_Overview">Events overview</xd:a> in the spec, but also caters for custom events.</xd:p>
         </xd:desc>
+        <xd:param name="event-name">Name of event.</xd:param>
     </xd:doc>
-    <xsl:template name="xforms-ready">
-        <xsl:message use-when="$debugMode">[xforms-ready] START</xsl:message>
+    <xsl:template name="xforms-event-handler">
+        <xsl:param name="event-name" as="xs:string" tunnel="yes"/>
+        <xsl:variable name="log-label" as="xs:string" select="'[xforms-event-handler for ' || $event-name || ']'"/>
+        <xsl:message use-when="$debugMode"><xsl:sequence select="$log-label"/> START</xsl:message>
         
-        <xsl:variable name="actions" select="js:getEventAction('xforms-ready')" as="map(*)*"/>
+        <xsl:variable name="actions" select="js:getEventAction($event-name)" as="map(*)*"/>
                 
-        <xsl:message use-when="$debugMode">[xforms-ready] Number of actions: <xsl:sequence select="count($actions)"/></xsl:message>
+        <xsl:message use-when="$debugMode"><xsl:sequence select="$log-label"/> Number of actions: <xsl:sequence select="count($actions)"/></xsl:message>
         
         <xsl:for-each select="$actions">
             <xsl:variable name="action-map" select="."/>
@@ -4175,7 +4228,7 @@
             </xsl:call-template>
         </xsl:for-each>                
         
-        <xsl:message use-when="$debugMode">[xforms-ready] END</xsl:message>
+        <xsl:message use-when="$debugMode"><xsl:sequence select="$log-label"/> END</xsl:message>
         
     </xsl:template>
     
@@ -4749,6 +4802,46 @@
             </xsl:if>
         
     </xsl:template>
+    
+    <xd:doc scope="component">
+        <xd:desc>
+            <xd:p>Template for applying dispatch action</xd:p>
+            <xd:p>XForms 2.0 spec <xd:a href="https://www.w3.org/TR/xforms20/#The_dispatch_Element">dispatch element</xd:a></xd:p>
+        </xd:desc>
+        <xd:param name="action-map">Action map</xd:param>
+    </xd:doc>
+    <xsl:template name="action-dispatch">
+        <xsl:param name="action-map" required="yes" as="map(*)" tunnel="yes"/>
+        
+        
+        <xsl:message use-when="$debugMode">[action-dispatch] action map: 
+            name      = <xsl:value-of select="map:get($action-map,'@name')"/>
+        </xsl:message>
+        
+        <xsl:variable name="event-name" as="xs:string" select="map:get($action-map,'@name')"/>
+        <xsl:variable name="event-delay" as="xs:string?" select="map:get($action-map,'@delay')"/>
+        
+        <xsl:variable name="delay" as="xs:integer" select="if ($event-delay castable as xs:nonNegativeInteger) then xs:integer($event-delay) else 0"/>
+        
+        <!-- 
+            TO DO: figure out how to use delay
+            
+            Want to use
+            
+            <ixsl:promise select="ixsl:sleep($delay)" on-completion="xforms:eventHandler"/>
+            
+            but holding on to the event name is difficult,
+            
+            and the context item needs to be a node. 
+            Not sure how to achieve this.
+        -->
+        
+        <xsl:call-template name="xforms-event-handler">
+            <xsl:with-param name="event-name" as="xs:string" select="$event-name" tunnel="yes"/>
+        </xsl:call-template>
+        
+    </xsl:template>
+   
     
     
     <xd:doc scope="component">
