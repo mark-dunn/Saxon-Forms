@@ -216,7 +216,7 @@
         
         var addEventAction = function(name, value){
             eventActions[name] = value;
-            console.log('[xforms-javascript-library] Adding action for event ' + name);
+            //console.log('[xforms-javascript-library] Adding action for event ' + name);
         }
         
         var getEventAction = function(name){

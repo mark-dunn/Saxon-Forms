@@ -167,24 +167,24 @@
         <xsl:variable name="xforms-doci" as="document-node()?">
             <xsl:choose>
                 <xsl:when test="$reset">
-                    <xsl:message>[xformsjs-main] Using document stored in Javascript XFormsDoc variable</xsl:message>
+                    <xsl:message use-when="$debugMode">[xformsjs-main] Using document stored in Javascript XFormsDoc variable</xsl:message>
                     <xsl:sequence select="js:getXFormsDoc()"/>
                 </xsl:when>
                 <xsl:when test="$xforms-doc">
-                    <xsl:message>[xformsjs-main] Using document supplied with $xforms-doc parameter</xsl:message>
+                    <xsl:message use-when="$debugMode">[xformsjs-main] Using document supplied with $xforms-doc parameter</xsl:message>
                     <xsl:sequence select="$xforms-doc"/>
                 </xsl:when>
                 <xsl:when test="fn:doc-available($xforms-file)">
-                    <xsl:message>[xformsjs-main] Using document supplied with $xforms-file parameter</xsl:message>
+                    <xsl:message use-when="$debugMode">[xformsjs-main] Using document supplied with $xforms-file parameter</xsl:message>
                     <xsl:sequence select="fn:doc($xforms-file)"/>
                 </xsl:when>
                 <!-- if the "global" xforms doc is HTML we take this (iframe) HTML  -->
                 <xsl:when test="exists($xforms-doc-global/xhtml:html)">
-                    <xsl:message>[xformsjs-main] Using $xforms-doc-global HTML document</xsl:message>
+                    <xsl:message use-when="$debugMode">[xformsjs-main] Using $xforms-doc-global HTML document</xsl:message>
                     <xsl:sequence select="$xforms-doc-local"/>
                 </xsl:when>
                 <xsl:when test="$xforms-doc-global">
-                    <xsl:message>[xformsjs-main] Using $xforms-doc-global document with root <xsl:sequence select="name($xforms-doc-global/*)"/></xsl:message>
+                    <xsl:message use-when="$debugMode">[xformsjs-main] Using $xforms-doc-global document with root <xsl:sequence select="name($xforms-doc-global/*)"/></xsl:message>
                     
                     <xsl:sequence select="$xforms-doc-global"/>
                 </xsl:when>
