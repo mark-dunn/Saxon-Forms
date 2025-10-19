@@ -45,6 +45,29 @@
             return today;
         }
         
+        var reset = function() {
+            models = {}
+            instances = {};
+            modelDefaultInstanceKeyMap = {};
+            bindings = [];
+            actions = {};
+            eventActions = {};
+            switches = {}; // map switch ID to array of case IDs
+            switchSelections = {};
+            caseSwitches = {}; // map case ID to ID of parent switch
+            cases = {}; 
+            submissions = {};
+            outputs = {};
+            repeats = {};
+            repeatModelContexts = {};
+            repeatContextNodesets = {};       
+        
+            repeatIndexMap = {};
+            repeatSizeMap = {};
+            elementsUsingIndexFunction = {};
+            elementsContextUsingIndexFunction = {};
+        }
+        
         var setModel = function(name, value) {
             models[name] = value;
         }

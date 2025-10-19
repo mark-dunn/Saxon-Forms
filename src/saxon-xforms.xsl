@@ -141,12 +141,14 @@
         <xd:param name="xforms-file">File path to XForms document.</xd:param>
         <xd:param name="instance-docs">All instances in the XForms document. (When completely refreshing the form from JS set parameters, bypassing the need to go back to an original XForm.)</xd:param>
         <xd:param name="xFormsId">The @id of an HTML div on the page into which the XForm will be rendered.</xd:param>
+        <xd:param name="reset">Boolean indicating whether this template is being called in a xforms-reset event. If true, we don't call the xforms-ready event</xd:param>
     </xd:doc>
     <xsl:template name="xformsjs-main">
         <xsl:param name="xforms-doc" as="document-node()?" required="no" select="()"/>
         <xsl:param name="xforms-file" as="xs:string?" required="no"/>
         <xsl:param name="instance-docs" as="map(*)?" required="no"/>   
         <xsl:param name="xFormsId" select="$xform-html-id" as="xs:string" required="no"/>
+        <xsl:param name="reset" as="xs:boolean" select="false()"/>
         
         <xsl:message use-when="$debugMode">[xformsjs-main] START</xsl:message>
 
@@ -164,17 +166,26 @@
         -->
         <xsl:variable name="xforms-doci" as="document-node()?">
             <xsl:choose>
+                <xsl:when test="$reset">
+                    <xsl:message>[xformsjs-main] Using document stored in Javascript XFormsDoc variable</xsl:message>
+                    <xsl:sequence select="js:getXFormsDoc()"/>
+                </xsl:when>
                 <xsl:when test="$xforms-doc">
+                    <xsl:message>[xformsjs-main] Using document supplied with $xforms-doc parameter</xsl:message>
                     <xsl:sequence select="$xforms-doc"/>
                 </xsl:when>
                 <xsl:when test="fn:doc-available($xforms-file)">
+                    <xsl:message>[xformsjs-main] Using document supplied with $xforms-file parameter</xsl:message>
                     <xsl:sequence select="fn:doc($xforms-file)"/>
                 </xsl:when>
                 <!-- if the "global" xforms doc is HTML we take this (iframe) HTML  -->
                 <xsl:when test="exists($xforms-doc-global/xhtml:html)">
+                    <xsl:message>[xformsjs-main] Using $xforms-doc-global HTML document</xsl:message>
                     <xsl:sequence select="$xforms-doc-local"/>
                 </xsl:when>
                 <xsl:when test="$xforms-doc-global">
+                    <xsl:message>[xformsjs-main] Using $xforms-doc-global document with root <xsl:sequence select="name($xforms-doc-global/*)"/></xsl:message>
+                    
                     <xsl:sequence select="$xforms-doc-global"/>
                 </xsl:when>
                 <xsl:when test="exists($xforms-file)">
@@ -228,16 +239,13 @@
             </xsl:apply-templates>
             
             <xsl:call-template name="xforms-event-handler">
-                <xsl:with-param name="event-name" as="xs:string" select="'xforms-model-construct'" tunnel="yes"/>
+                <xsl:with-param name="event-name" select="'xforms-model-construct'" as="xs:string" tunnel="yes"/>
             </xsl:call-template>
         </xsl:for-each> 
         
-       
-        
         <xsl:call-template name="xforms-event-handler">
-            <xsl:with-param name="event-name" as="xs:string" select="'xforms-model-construct-done'" tunnel="yes"/>
-        </xsl:call-template>
-        
+            <xsl:with-param name="event-name" select="'xforms-model-construct-done'" as="xs:string" tunnel="yes"/>
+        </xsl:call-template>        
         
          <!-- clear deferred update flags only if we're building from scratch -->
         <xsl:if test="empty($instance-docs)">
@@ -318,14 +326,16 @@
         <!-- 
             MJD 2025-10-17 need to pass bindings at least
         -->
-        <xsl:call-template name="xforms-event-handler">
-            <xsl:with-param name="event-name" select="'xforms-ready'" as="xs:string" tunnel="yes"/>
-            <xsl:with-param name="bindings-js" select="js:getBindings()" as="element(xforms:bind)*" tunnel="yes"/>
-            <xsl:with-param name="submissions" select="$submissions" as="map(xs:string, map(*))" tunnel="yes"/>
-            <xsl:with-param name="model-key" select="$default-model-id" tunnel="yes"/>
-            <xsl:with-param name="default-instance-id" select="$default-instance-id" tunnel="yes"/>
-            <xsl:with-param name="default-namespace-context" select="$xform-doc-ns/*" tunnel="yes"/>
-        </xsl:call-template>
+        <xsl:if test="not($reset)">
+            <xsl:call-template name="xforms-event-handler">
+                <xsl:with-param name="event-name" select="'xforms-ready'" as="xs:string" tunnel="yes"/>
+                <xsl:with-param name="bindings-js" select="js:getBindings()" as="element(xforms:bind)*" tunnel="yes"/>
+                <xsl:with-param name="submissions" select="$submissions" as="map(xs:string, map(*))" tunnel="yes"/>
+                <xsl:with-param name="model-key" select="$default-model-id" tunnel="yes"/>
+                <xsl:with-param name="default-instance-id" select="$default-instance-id" tunnel="yes"/>
+                <xsl:with-param name="default-namespace-context" select="$xform-doc-ns/*" tunnel="yes"/>
+            </xsl:call-template>
+        </xsl:if>
         
     </xsl:template>
 
@@ -3147,6 +3157,7 @@
         <xsl:variable name="at" select="map:get($action-map, '@at')" as="xs:string?"/>
         <xsl:variable name="position" select="(map:get($action-map, '@position'),'after')[1]" as="xs:string"/>
         <xsl:variable name="context" select="map:get($action-map, '@context')" as="xs:string?"/>
+        <xsl:variable name="event" select="map:get($action-map, '@event')" as="xs:string?"/>
         
  
         <!--<xsl:message use-when="$debugMode"><xsl:sequence select="$log-label"/> $action-map @ref = <xsl:sequence select="$ref"/></xsl:message>
@@ -3338,7 +3349,8 @@
                 <xsl:call-template name="applyActions"/>
             </xsl:if>
             
-            <xsl:if test="$handler-status = 'outermost'">
+            <!-- if outermost action is an event of the type triggered -->
+            <xsl:if test="$handler-status = 'outermost' and not($event = ('xforms-rebuild','xforms-recalculate','xforms-revalidate','xforms-refresh','xforms-reset'))">
                 <xsl:call-template name="outermost-action-handler"/>
             </xsl:if>
             
@@ -4089,15 +4101,17 @@
     
     <xd:doc scope="component">
         <xd:desc>
-            <xd:p>Function xforms:eventHandler() is the on-completion action of the ixsl:promise instruction in the action-dispatch template. (Used to set a delay on the action.)</xd:p>
+            <xd:p>Function xforms:dispatchEvent() sends an event to the event handler template.</xd:p>
+            <xd:p>Can't always (ever?) use this. Saxon-JS error: "Cannot call xsl:result-document while evaluating function".</xd:p>
         </xd:desc>
+        <xd:param name="event-name">Name of event.</xd:param>
     </xd:doc>
-    <!--<xsl:function name="xforms:eventHandler">
-        <xsl:variable name="event-name" as="xs:string" select="js:getTempEventName()"/>
+    <xsl:function name="xforms:dispatchEvent">
+        <xsl:param name="event-name" as="xs:string"/>
         <xsl:call-template name="xforms-event-handler">
             <xsl:with-param name="event-name" select="$event-name" as="xs:string" tunnel="yes"/>
         </xsl:call-template>
-    </xsl:function>-->
+    </xsl:function>
     
     <xd:doc scope="component">
         <xd:desc>
@@ -4170,21 +4184,34 @@
         <xsl:message use-when="$debugMode">[outermost-action-handler] Revalidate: <xsl:sequence select="map:get($deferred-update-flags,'revalidate') "/></xsl:message>
         <xsl:message use-when="$debugMode">[outermost-action-handler] Refresh: <xsl:sequence select="map:get($deferred-update-flags,'refresh') "/></xsl:message>
         
-        <!-- not convinced there's anything to do in the xforms-rebuild event -->
-        <!--<xsl:if test="map:get($deferred-update-flags,'rebuild') = 'true'">
-            <xsl:call-template name="xforms-rebuild"/>
-        </xsl:if>-->
+        <xsl:if test="map:get($deferred-update-flags,'rebuild') = 'true'">
+            <!--<xsl:call-template name="xforms-rebuild"/>-->
+            <xsl:call-template name="xforms-event-handler">
+                <xsl:with-param name="event-name" select="'xforms-rebuild'" as="xs:string" tunnel="yes"/>
+            </xsl:call-template>
+        </xsl:if>
         <xsl:if test="map:get($deferred-update-flags,'recalculate') = 'true'">
             <xsl:message use-when="$debugMode">[outermost-action-handler] triggering xforms-recalculate</xsl:message>
+            <xsl:call-template name="xforms-event-handler">
+                <xsl:with-param name="event-name" select="'xforms-recalculate'" as="xs:string" tunnel="yes"/>
+            </xsl:call-template>
             <xsl:call-template name="xforms-recalculate"/>
         </xsl:if>
         <xsl:if test="map:get($deferred-update-flags,'revalidate') = 'true'">
             <xsl:message use-when="$debugMode">[outermost-action-handler] triggering xforms-revalidate</xsl:message>
+            <xsl:call-template name="xforms-event-handler">
+                <xsl:with-param name="event-name" select="'xforms-revalidate'" as="xs:string" tunnel="yes"/>
+            </xsl:call-template>
             <xsl:call-template name="xforms-revalidate"/>
         </xsl:if>
         <xsl:if test="map:get($deferred-update-flags,'refresh') = 'true'">
             <xsl:message use-when="$debugMode">[outermost-action-handler] triggering xforms-refresh</xsl:message>
+            <!-- handle actions for this event before performing the refresh -->
+            <xsl:call-template name="xforms-event-handler">
+                <xsl:with-param name="event-name" select="'xforms-refresh'" as="xs:string" tunnel="yes"/>
+            </xsl:call-template>
             <xsl:call-template name="xforms-refresh"/>
+            
         </xsl:if>
        
         
@@ -4712,6 +4739,10 @@
                 <xsl:sequence select="js:setDeferredUpdateFlags(('rebuild','recalculate','revalidate','refresh'))"/>
             </xsl:if>
             
+            <xsl:call-template name="xforms-event-handler">
+                <xsl:with-param name="event-name" select="'xforms-insert'" as="xs:string" tunnel="yes"/>
+            </xsl:call-template>
+            
         </xsl:if>
         
         <xsl:message use-when="$debugMode"><xsl:sequence select="$log-label"/> END</xsl:message>
@@ -4801,6 +4832,10 @@
                 <xsl:sequence select="js:setDeferredUpdateFlags(('rebuild','recalculate','revalidate','refresh'))"/>
             </xsl:if>
         
+        <xsl:call-template name="xforms-event-handler">
+            <xsl:with-param name="event-name" select="'xforms-delete'" as="xs:string" tunnel="yes"/>
+        </xsl:call-template>
+        
     </xsl:template>
     
     <xd:doc scope="component">
@@ -4835,9 +4870,8 @@
             and the context item needs to be a node. 
             Not sure how to achieve this.
         -->
-        
         <xsl:call-template name="xforms-event-handler">
-            <xsl:with-param name="event-name" as="xs:string" select="$event-name" tunnel="yes"/>
+            <xsl:with-param name="event-name" select="$event-name" as="xs:string" tunnel="yes"/>
         </xsl:call-template>
         
     </xsl:template>
@@ -5049,6 +5083,8 @@
     <xd:doc scope="component">
         <xd:desc>
             <xd:p>Template for applying reset action</xd:p>
+            <xd:p>Resets all stored javascript variables to their initial values.</xd:p>
+            <xd:p>TO DO: apply this on a per-model basis.</xd:p>
         </xd:desc>
         <xd:param name="action-map">Action map</xd:param>
     </xd:doc>
@@ -5056,8 +5092,15 @@
         <xsl:param name="action-map" required="yes" as="map(*)" tunnel="yes"/>
         
         <xsl:message use-when="$debugMode">[action-reset] Reset triggered!</xsl:message>
-        <!-- TO DO: implement remainder of this action -->
-        <xsl:sequence select="js:clearDeferredUpdateFlags()"/>
+        <xsl:sequence select="js:reset()"/>
+        <xsl:call-template name="xformsjs-main" >
+            <xsl:with-param name="xFormsId" select="$xform-html-id" />
+            <xsl:with-param name="reset" select="true()"/>
+        </xsl:call-template>
+        <xsl:message use-when="$debugMode">[action-reset] Reset in progress!</xsl:message>
+        
+        <xsl:sequence select="js:setDeferredUpdateFlags(('rebuild','recalculate','revalidate','refresh'))"/>
+        <!--<xsl:call-template name="outermost-action-handler"/>-->
     </xsl:template>
     
     <xd:doc scope="component">
