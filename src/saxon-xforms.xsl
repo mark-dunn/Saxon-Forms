@@ -206,7 +206,7 @@ doctype-system="http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"/>
             to the root level
         -->
         <xsl:variable name="xform-doc-ns" as="document-node()" select="xforms:addNamespaceDeclarationsToDocument($xforms-doci)"/>  
-        <xsl:variable name="xform" as="element()" select="$xform-doc-ns/*"/>  
+        <xsl:variable name="xform" as="element()" select="$xform-doc-ns/*"/> 
         
         <!-- populate Javascript variables -->
         <xsl:sequence select="js:setXFormsDoc($xform-doc-ns)"/>
@@ -1781,8 +1781,7 @@ doctype-system="http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"/>
         <xsl:variable name="binding" as="element(xforms:bind)?" select="map:get($properties,'binding')"/>
         <xsl:variable name="namespace-context" as="element()" select="map:get($properties,'namespace-context')"/>
         
-        
-        <xsl:variable name="instanceField" as="node()?" select="xforms:evaluate-xpath-with-instance-id($nodeset,$instance-context,$namespace-context)"/>                
+        <xsl:variable name="instanceField" as="node()?" select="xforms:evaluate-xpath-with-instance-id($nodeset,$instance-context,$namespace-context)"/>   
         
         <xsl:variable name="selectedValue" as="xs:string">
             <xsl:choose>
@@ -1997,19 +1996,17 @@ doctype-system="http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"/>
             <xd:p>Template for xforms:itemset element.</xd:p>
             <xd:p>Generates HTML option elements according to evaluation of @ref.</xd:p>
         </xd:desc>
-        <xd:param name="properties">Map of properties of this xform element. (See template for "get-properties" mode.)</xd:param>
         <xd:param name="default-namespace-context">The HTML element that contains the XForm. Used when called from "refreshOutputs-JS" template.</xd:param>
     </xd:doc>
     <xsl:template match="xforms:itemset" mode="get-html">
-        <xsl:param name="properties" as="map(*)?"/>
         <xsl:param name="default-namespace-context" as="element()?" required="no"/>
-        <xsl:variable name="namespace-context" as="element()" select="(map:get($properties,'namespace-context'),$default-namespace-context)[1]"/>
         
         <xsl:message use-when="$debugMode">[xforms:itemset] Generate HTML for itemset</xsl:message>
         
         <xsl:variable name="properties" as="map(*)">
             <xsl:apply-templates select="." mode="get-properties"/>
         </xsl:variable>
+        <xsl:variable name="namespace-context" as="element()" select="(map:get($properties,'namespace-context'),$default-namespace-context)[1]"/>
         
         <xsl:variable name="refi" as="xs:string" select="map:get($properties,'nodeset')"/>
         <xsl:variable name="this-instance-id" as="xs:string" select="map:get($properties,'instance-context')"/>
@@ -2702,7 +2699,8 @@ doctype-system="http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"/>
                 <xsl:for-each select="$this//*[not(namespace-uri() = ('','http://www.w3.org/2002/xforms',$default-namespace))][not(namespace-uri() = (ancestor::*/namespace-uri(),preceding::*/namespace-uri()))]">
                     <xsl:variable name="new-namespace" select="namespace-uri(.)"/>
                     <xsl:variable name="new-prefix-1" as="xs:string" select="substring-before(name(),':')"/>
-                    <xsl:variable name="new-prefix" as="xs:string" select="if ($new-prefix-1 ne '') then $new-prefix-1 else ('ns' || fn:position())"/><xsl:namespace name="{$new-prefix}" select="$new-namespace"/>
+                    <xsl:variable name="new-prefix" as="xs:string" select="if ($new-prefix-1 ne '') then $new-prefix-1 else ('ns' || fn:position())"/>
+                    <xsl:namespace name="{$new-prefix}" select="$new-namespace"/>
                 </xsl:for-each>
                 <xsl:sequence select="$this/*/@*,$this/*/node()"/>
             </xsl:copy>
@@ -4276,7 +4274,11 @@ doctype-system="http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"/>
             <xsl:call-template name="applyActions">
                 <xsl:with-param name="action-map" select="$action-map" tunnel="yes"/>
             </xsl:call-template>
-        </xsl:for-each>                
+        </xsl:for-each>  
+        
+        <xsl:if test="$event-name eq 'xforms-ready'">
+            <xsl:call-template name="xforms-refresh"/>
+        </xsl:if>
         
         <xsl:message use-when="$debugMode"><xsl:sequence select="$log-label"/> END</xsl:message>
         
